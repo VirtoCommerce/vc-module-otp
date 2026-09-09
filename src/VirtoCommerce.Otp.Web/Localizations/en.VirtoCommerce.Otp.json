@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "otp:create": "Create Otp related data",
+    "otp:read": "View Otp related data",
+    "otp:update": "Update Otp related data",
+    "otp:delete": "Delete Otp related data"
+  }
+}
