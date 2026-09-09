@@ -30,14 +30,6 @@ public static class ModuleConstants
                 DefaultValue = false,
                 IsPublic = true,
             };
-
-            public static IEnumerable<SettingDescriptor> AllSettings
-            {
-                get
-                {
-                    yield return Enabled;
-                }
-            }
         }
 
         public static IEnumerable<SettingDescriptor> StoreSettings
@@ -48,6 +40,12 @@ public static class ModuleConstants
             }
         }
 
-        public static IEnumerable<SettingDescriptor> AllSettings => General.AllSettings;
+        public static IEnumerable<SettingDescriptor> AllSettings
+        {
+            get
+            {
+                yield return General.Enabled;
+            }
+        }
     }
 }
