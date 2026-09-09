@@ -31,38 +31,11 @@ public static class ModuleConstants
                 IsPublic = true,
             };
 
-            public static readonly SettingDescriptor EmailRequestCooldownSeconds = new()
-            {
-                Name = "OtpLogin.EmailRequestCooldownSeconds",
-                GroupName = "OTP Sign-In|General",
-                ValueType = SettingValueType.PositiveInteger,
-                DefaultValue = 15,
-            };
-
-            public static readonly SettingDescriptor IpRequestLimit = new()
-            {
-                Name = "OtpLogin.IpRequestLimit",
-                GroupName = "OTP Sign-In|General",
-                ValueType = SettingValueType.PositiveInteger,
-                DefaultValue = 10,
-            };
-
-            public static readonly SettingDescriptor IpRequestWindowSeconds = new()
-            {
-                Name = "OtpLogin.IpRequestWindowSeconds",
-                GroupName = "OTP Sign-In|General",
-                ValueType = SettingValueType.PositiveInteger,
-                DefaultValue = 60,
-            };
-
             public static IEnumerable<SettingDescriptor> AllSettings
             {
                 get
                 {
                     yield return Enabled;
-                    yield return EmailRequestCooldownSeconds;
-                    yield return IpRequestLimit;
-                    yield return IpRequestWindowSeconds;
                 }
             }
         }

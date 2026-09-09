@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Threading.RateLimiting;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Identity;
 using Moq;
@@ -63,23 +62,6 @@ public class OtpServiceTests
         Assert.Equal(OtpRequestOutcome.Sent, result.Outcome);
         context.UserManager.Verify(x => x.GenerateUserTokenAsync(It.IsAny<ApplicationUser>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
         context.NotificationSender.Verify(x => x.ScheduleSendNotificationAsync(It.IsAny<Notification>()), Times.Never);
-    }
-
-    [Fact]
-    public async Task RequestCodeAsync_Should_ReturnSent_But_SkipSending_When_EmailRateLimitExceeded()
-    {
-        // Protects a target's inbox from being flooded with sign-in codes: the response stays uniformly
-        // "Sent" (same as the anti-enumeration case) so a caller can't tell the limit was hit.
-        var context = CreateContext();
-        var user = new ApplicationUser { Email = Email };
-        context.UserManager.Setup(x => x.FindByEmailAsync(Email)).ReturnsAsync(user);
-        context.UserManager.Setup(x => x.GenerateUserTokenAsync(user, TokenProvider, TokenPurpose)).ReturnsAsync("123456");
-
-        await context.Service.RequestCodeAsync(StoreId, Email);
-        var result = await context.Service.RequestCodeAsync(StoreId, Email);
-
-        Assert.Equal(OtpRequestOutcome.Sent, result.Outcome);
-        context.NotificationSender.Verify(x => x.ScheduleSendNotificationAsync(It.IsAny<Notification>()), Times.Once);
     }
 
     [Fact]
@@ -203,21 +185,9 @@ public class OtpServiceTests
             userManager.Object,
             settingsManager.Object,
             notificationSearchService.Object,
-            notificationSender.Object,
-            CreateEmailRateLimiter());
+            notificationSender.Object);
 
         return new TestContext(service, userManager, settingsManager, notificationSender);
-    }
-
-    private static PartitionedRateLimiter<string> CreateEmailRateLimiter()
-    {
-        return PartitionedRateLimiter.Create<string, string>(email =>
-            RateLimitPartition.GetFixedWindowLimiter(email, _ => new FixedWindowRateLimiterOptions
-            {
-                PermitLimit = 1,
-                Window = TimeSpan.FromSeconds(60),
-                QueueLimit = 0,
-            }));
     }
 
     private sealed record TestContext(

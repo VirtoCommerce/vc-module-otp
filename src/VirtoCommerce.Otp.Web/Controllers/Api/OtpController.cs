@@ -1,7 +1,6 @@
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.RateLimiting;
 using VirtoCommerce.Otp.Core.Models;
 using VirtoCommerce.Otp.Core.Services;
 using VirtoCommerce.Otp.Web.Models;
@@ -12,7 +11,6 @@ namespace VirtoCommerce.Otp.Web.Controllers.Api;
 [ApiController]
 [Route("api/otp")]
 [AllowAnonymous]
-[EnableRateLimiting(Module.IpRateLimiterPolicy)]
 public class OtpController : Controller
 {
     private readonly IOtpService _otpService;

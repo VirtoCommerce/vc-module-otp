@@ -7,18 +7,6 @@
       "Enabled": {
         "title": "Aktiver engangskodepålogging",
         "description": "Lar kunder logge på nettbutikken med en engangskode sendt på e-post, i stedet for passord."
-      },
-      "EmailRequestCooldownSeconds": {
-        "title": "E-post-nedkjøling, sekunder",
-        "description": "Minste tid mellom to kodeforespørsler for samme e-post. Gjelder globalt, for alle butikker. Krever omstart av appen for å tre i kraft."
-      },
-      "IpRequestLimit": {
-        "title": "Forespørselsgrense per IP",
-        "description": "Maksimalt antall kodeforespørsler tillatt fra én IP-adresse innenfor forespørselsvinduet nedenfor. Gjelder globalt, for alle butikker. Krever omstart av appen for å tre i kraft."
-      },
-      "IpRequestWindowSeconds": {
-        "title": "Forespørselsvindu per IP, sekunder",
-        "description": "Det rullerende tidsvinduet forespørselsgrensen per IP måles over. Gjelder globalt, for alle butikker. Krever omstart av appen for å tre i kraft."
       }
     }
   }

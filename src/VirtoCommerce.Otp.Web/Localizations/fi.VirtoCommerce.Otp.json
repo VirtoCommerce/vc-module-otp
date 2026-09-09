@@ -7,18 +7,6 @@
       "Enabled": {
         "title": "Ota kertakoodikirjautuminen käyttöön",
         "description": "Antaa asiakkaiden kirjautua verkkokauppaan sähköpostitse lähetetyllä kertakoodilla salasanan sijaan."
-      },
-      "EmailRequestCooldownSeconds": {
-        "title": "Sähköpostin jäähdytysaika, sekuntia",
-        "description": "Vähimmäisaika kahden koodipyynnön välillä samalle sähköpostiosoitteelle. Koskee kaikkia kauppoja globaalisti. Vaatii sovelluksen uudelleenkäynnistyksen tullakseen voimaan."
-      },
-      "IpRequestLimit": {
-        "title": "Pyyntöraja per IP",
-        "description": "Suurin sallittu koodipyyntöjen määrä yhdestä IP-osoitteesta alla määritetyn pyyntöikkunan aikana. Koskee kaikkia kauppoja globaalisti. Vaatii sovelluksen uudelleenkäynnistyksen tullakseen voimaan."
-      },
-      "IpRequestWindowSeconds": {
-        "title": "Pyyntöikkuna per IP, sekuntia",
-        "description": "Liukuva aikaikkuna, jonka aikana IP-kohtainen pyyntöraja lasketaan. Koskee kaikkia kauppoja globaalisti. Vaatii sovelluksen uudelleenkäynnistyksen tullakseen voimaan."
       }
     }
   }

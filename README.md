@@ -14,9 +14,12 @@ The module serves returning customers only: a code is only useful for signing in
 * **Timing-equalized responses** — response time for code requests is equalized across outcomes (disabled/sent), so timing can't be used to probe whether an email is registered.
 * **Reuses the platform's external sign-in pipeline** — once a code is verified, a pending external login is established the same way an OAuth provider would after a successful challenge, so the platform's existing `IExternalSignInService` and `external_sign_in` token grant complete the sign-in — no platform changes required.
 * **Delivery via `VirtoCommerce.Notifications`** — the code is sent through the standard notification pipeline (`OtpSignInEmailNotification`), so it inherits whatever email gateway (SMTP/SendGrid/Microsoft Graph) the store already uses.
-* **Abuse protection via `System.Threading.RateLimiting`** — a per-email limit throttles how often a code email can be sent to the same address (silently, the API response stays uniform), and a per-IP limit (ASP.NET Core's built-in rate-limiting middleware) throttles the endpoints in general; both are configurable, see [Global settings](#global-settings-settings--otp-sign-in--general) below.
 
 Code length and lifetime are controlled by the platform's `"Email"` token provider and are not configurable per store.
+
+The module deliberately has no request rate limiting (per-email cooldown, per-IP throttling, etc.). An earlier version added one using `System.Threading.RateLimiting`/`Microsoft.AspNetCore.RateLimiting`, but those primitives hold their counters in local process memory — with more than one platform instance behind a load balancer, each instance enforces the limit independently, so the effective limit becomes "configured value × instance count" instead of a real cap, and an operator setting a strict value would get a false sense of protection. Rather than ship a limiter that quietly stops meaning what its own setting says in a scaled-out deployment, it was removed; add it back only with a distributed store (e.g. Redis) if this module ever needs it.
+
+Because the code is derived from the user's `SecurityStamp` (not stored anywhere by this module), anything that rotates that stamp invalidates every code already issued for that user — including a currently valid, not-yet-used one. The platform's own `GET /api/security/logout` does exactly this by design (to revoke any other outstanding cookies/tokens for that user on sign-out). So if the same account is signed in elsewhere (another tab/device/test session) and that other session logs out while a code is pending, the code silently stops working — not a bug in this module, just a consequence of tying the code to the platform's own session-invalidation mechanism.
 
 ## Configuration
 
@@ -27,20 +30,6 @@ All settings are registered under the `VirtoCommerce.Otp` module and can be mana
 | Setting | Description | Default |
 | --- | --- | --- |
 | `OtpLogin.Enabled` | Enables OTP sign-in for the store. | `false` |
-
-### Global settings (*Settings → OTP Sign-In → General*)
-
-Infrastructure limits, not a per-store business rule — they apply to every store and require an app restart to take effect (read once and cached for the process lifetime; see `OtpRateLimiterSettings`).
-
-The per-IP limit reads `HttpContext.Connection.RemoteIpAddress`. Behind a reverse proxy/load balancer, that resolves to every visitor's real IP only if the platform's forwarded-headers support is enabled (`ASPNETCORE_FORWARDEDHEADERS_ENABLED=true`, see `VirtoCommerce.Platform.Web`); otherwise every request looks like it comes from the proxy, and the limit is effectively shared platform-wide instead of per visitor.
-
-`EmailRequestCooldownSeconds` defaults low (`15`, not the more typical `60`) because the request endpoint always answers `Sent` even when the cooldown silently skips sending (anti-enumeration), and the UI has no cooldown countdown of its own — a longer default would make a perfectly normal sign-out-then-sign-in-again a few seconds later look like the mailer is broken.
-
-| Setting | Description | Default |
-| --- | --- | --- |
-| `OtpLogin.EmailRequestCooldownSeconds` | Minimum time between two code requests for the same email. | `15` |
-| `OtpLogin.IpRequestLimit` | Maximum code requests allowed from one IP within the window below. | `10` |
-| `OtpLogin.IpRequestWindowSeconds` | Rolling window the per-IP request limit is measured over. | `60` |
 
 ### Permissions
 

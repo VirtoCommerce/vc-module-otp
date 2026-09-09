@@ -1,8 +1,6 @@
 using System;
-using System.Threading.RateLimiting;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.Extensions.DependencyInjection;
 using VirtoCommerce.NotificationsModule.Core.Extensions;
 using VirtoCommerce.NotificationsModule.Core.Services;
 using VirtoCommerce.Otp.Core.Models;
@@ -21,26 +19,21 @@ public class OtpService : IOtpService
     private const string TokenProvider = "Email";
     private const string TokenPurpose = "OtpSignIn";
 
-    public const string EmailRateLimiterKey = "VirtoCommerce.Otp.EmailRateLimiter";
-
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly ISettingsManager _settingsManager;
     private readonly INotificationSearchService _notificationSearchService;
     private readonly INotificationSender _notificationSender;
-    private readonly PartitionedRateLimiter<string> _emailRateLimiter;
 
     public OtpService(
         UserManager<ApplicationUser> userManager,
         ISettingsManager settingsManager,
         INotificationSearchService notificationSearchService,
-        INotificationSender notificationSender,
-        [FromKeyedServices(EmailRateLimiterKey)] PartitionedRateLimiter<string> emailRateLimiter)
+        INotificationSender notificationSender)
     {
         _userManager = userManager;
         _settingsManager = settingsManager;
         _notificationSearchService = notificationSearchService;
         _notificationSender = notificationSender;
-        _emailRateLimiter = emailRateLimiter;
     }
 
     public async Task<OtpRequestResult> RequestCodeAsync(string storeId, string email)
@@ -62,12 +55,8 @@ public class OtpService : IOtpService
         var user = await _userManager.FindByEmailAsync(email);
         if (user != null)
         {
-            using var lease = _emailRateLimiter.AttemptAcquire(email);
-            if (lease.IsAcquired)
-            {
-                var code = await _userManager.GenerateUserTokenAsync(user, TokenProvider, TokenPurpose);
-                await SendCodeNotificationAsync(storeId, email, code);
-            }
+            var code = await _userManager.GenerateUserTokenAsync(user, TokenProvider, TokenPurpose);
+            await SendCodeNotificationAsync(storeId, email, code);
         }
 
         await delayedResponse.SucceedAsync();

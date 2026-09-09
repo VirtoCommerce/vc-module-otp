@@ -7,18 +7,6 @@
       "Enabled": {
         "title": "Anmeldung per Einmalcode aktivieren",
         "description": "Ermöglicht Kunden die Anmeldung im Storefront mit einem per E-Mail gesendeten Einmalcode anstelle eines Passworts."
-      },
-      "EmailRequestCooldownSeconds": {
-        "title": "E-Mail-Sperrzeit, Sekunden",
-        "description": "Mindestzeit zwischen zwei Codeanfragen für dieselbe E-Mail-Adresse. Gilt global für alle Stores. Erfordert einen Neustart der Anwendung, um wirksam zu werden."
-      },
-      "IpRequestLimit": {
-        "title": "Anfragelimit pro IP",
-        "description": "Maximale Anzahl von Codeanfragen, die von einer IP-Adresse innerhalb des unten angegebenen Anfragefensters zulässig sind. Gilt global für alle Stores. Erfordert einen Neustart der Anwendung, um wirksam zu werden."
-      },
-      "IpRequestWindowSeconds": {
-        "title": "Anfragefenster pro IP, Sekunden",
-        "description": "Das rollierende Zeitfenster, über das das Anfragelimit pro IP gemessen wird. Gilt global für alle Stores. Erfordert einen Neustart der Anwendung, um wirksam zu werden."
       }
     }
   }

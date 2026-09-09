@@ -7,18 +7,6 @@
       "Enabled": {
         "title": "Activer la connexion par code à usage unique",
         "description": "Permet aux clients de se connecter à la boutique avec un code à usage unique envoyé par e-mail, au lieu d'un mot de passe."
-      },
-      "EmailRequestCooldownSeconds": {
-        "title": "Délai de récupération par e-mail, secondes",
-        "description": "Durée minimale entre deux demandes de code pour la même adresse e-mail. S'applique globalement, à toutes les boutiques. Nécessite un redémarrage de l'application pour prendre effet."
-      },
-      "IpRequestLimit": {
-        "title": "Limite de demandes par IP",
-        "description": "Nombre maximal de demandes de code autorisées depuis une adresse IP au cours de la fenêtre de demande ci-dessous. S'applique globalement, à toutes les boutiques. Nécessite un redémarrage de l'application pour prendre effet."
-      },
-      "IpRequestWindowSeconds": {
-        "title": "Fenêtre de demandes par IP, secondes",
-        "description": "La fenêtre de temps glissante sur laquelle la limite de demandes par IP est mesurée. S'applique globalement, à toutes les boutiques. Nécessite un redémarrage de l'application pour prendre effet."
       }
     }
   }

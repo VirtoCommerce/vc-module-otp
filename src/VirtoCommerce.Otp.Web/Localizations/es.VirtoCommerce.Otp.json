@@ -7,18 +7,6 @@
       "Enabled": {
         "title": "Habilitar inicio de sesión con OTP",
         "description": "Permite a los clientes iniciar sesión en la tienda con un código de un solo uso enviado por correo electrónico, en lugar de una contraseña."
-      },
-      "EmailRequestCooldownSeconds": {
-        "title": "Tiempo de espera por correo, segundos",
-        "description": "Tiempo mínimo entre dos solicitudes de código para el mismo correo electrónico. Se aplica globalmente, a todas las tiendas. Requiere reiniciar la aplicación para surtir efecto."
-      },
-      "IpRequestLimit": {
-        "title": "Límite de solicitudes por IP",
-        "description": "Número máximo de solicitudes de código permitidas desde una dirección IP dentro de la ventana de solicitudes indicada a continuación. Se aplica globalmente, a todas las tiendas. Requiere reiniciar la aplicación para surtir efecto."
-      },
-      "IpRequestWindowSeconds": {
-        "title": "Ventana de solicitudes por IP, segundos",
-        "description": "La ventana de tiempo móvil en la que se mide el límite de solicitudes por IP. Se aplica globalmente, a todas las tiendas. Requiere reiniciar la aplicación para surtir efecto."
       }
     }
   }
