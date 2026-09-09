@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "otp:access": "管理一次性验证码登录设置"
+  },
+  "settings": {
+    "OtpLogin": {
+      "Enabled": {
+        "title": "启用一次性验证码登录",
+        "description": "允许客户使用通过电子邮件发送的一次性验证码登录商店，而无需使用密码。"
+      },
+      "EmailRequestCooldownSeconds": {
+        "title": "邮箱冷却时间（秒）",
+        "description": "同一邮箱两次验证码请求之间的最短间隔。全局生效，适用于所有商店。需要重启应用才能生效。"
+      },
+      "IpRequestLimit": {
+        "title": "每个IP的请求限制",
+        "description": "在下方请求时间窗口内，允许来自单个IP地址的最大验证码请求数量。全局生效，适用于所有商店。需要重启应用才能生效。"
+      },
+      "IpRequestWindowSeconds": {
+        "title": "每个IP的请求时间窗口（秒）",
+        "description": "用于计算每个IP请求限制的滚动时间窗口。全局生效，适用于所有商店。需要重启应用才能生效。"
+      }
+    }
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "otp:access": "Zarządzaj ustawieniami logowania kodem jednorazowym"
+  },
+  "settings": {
+    "OtpLogin": {
+      "Enabled": {
+        "title": "Włącz logowanie kodem jednorazowym",
+        "description": "Umożliwia klientom logowanie się do sklepu za pomocą jednorazowego kodu wysyłanego e-mailem zamiast hasła."
+      },
+      "EmailRequestCooldownSeconds": {
+        "title": "Czas odnowienia dla e-maila, sekundy",
+        "description": "Minimalny czas między dwoma żądaniami kodu dla tego samego adresu e-mail. Dotyczy globalnie wszystkich sklepów. Wymaga ponownego uruchomienia aplikacji, aby zaczęło obowiązywać."
+      },
+      "IpRequestLimit": {
+        "title": "Limit żądań na adres IP",
+        "description": "Maksymalna liczba żądań kodu dozwolona z jednego adresu IP w podanym poniżej oknie czasowym. Dotyczy globalnie wszystkich sklepów. Wymaga ponownego uruchomienia aplikacji, aby zaczęło obowiązywać."
+      },
+      "IpRequestWindowSeconds": {
+        "title": "Okno żądań na adres IP, sekundy",
+        "description": "Przesuwane okno czasowe, w którym mierzony jest limit żądań na adres IP. Dotyczy globalnie wszystkich sklepów. Wymaga ponownego uruchomienia aplikacji, aby zaczęło obowiązywać."
+      }
+    }
+  }
+}

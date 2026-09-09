@@ -4,22 +4,23 @@
   <version>3.1000.0</version>
   <version-tag></version-tag>
 
-  <platformVersion>3.1007.2</platformVersion>
+  <platformVersion>3.1059.0</platformVersion>
   <dependencies>
-    <dependency id="VirtoCommerce.Xapi" version="3.1003.0" />
+    <dependency id="VirtoCommerce.Notifications" version="3.1012.0" />
+    <dependency id="VirtoCommerce.Store" version="3.1006.0" />
   </dependencies>
 
-  <title>Virto Commerce Otp</title>
-  <description>Virto Commerce Otp</description>
+  <title>OTP Sign-In</title>
+  <description>Enables customers to sign in to the storefront with a one-time code emailed to them, instead of a password.</description>
 
   <authors>
-    <author>VirtoCommerce</author>
+    <author>Dmitry Grishin</author>
   </authors>
   <owners>
-    <owner>Virto Commerce</owner>
+    <owner>VirtoCommerce</owner>
   </owners>
 
-  <projectUrl>https://github.com/Virto Commerce/vc-module-otp</projectUrl>
+  <projectUrl>https://github.com/VirtoCommerce/vc-module-otp</projectUrl>
   <iconUrl>Modules/$(VirtoCommerce.Otp)/Content/logo.png</iconUrl>
   <requireLicenseAcceptance>false</requireLicenseAcceptance>
 

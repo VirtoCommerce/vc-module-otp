@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "otp:access": "Gestisci le impostazioni di accesso con OTP"
+  },
+  "settings": {
+    "OtpLogin": {
+      "Enabled": {
+        "title": "Abilita accesso con OTP",
+        "description": "Consente ai clienti di accedere allo storefront con un codice monouso inviato via e-mail, invece di una password."
+      },
+      "EmailRequestCooldownSeconds": {
+        "title": "Tempo di attesa per e-mail, secondi",
+        "description": "Tempo minimo tra due richieste di codice per la stessa e-mail. Si applica globalmente, a tutti gli store. Richiede il riavvio dell'applicazione per avere effetto."
+      },
+      "IpRequestLimit": {
+        "title": "Limite di richieste per IP",
+        "description": "Numero massimo di richieste di codice consentite da un indirizzo IP entro la finestra di richiesta indicata di seguito. Si applica globalmente, a tutti gli store. Richiede il riavvio dell'applicazione per avere effetto."
+      },
+      "IpRequestWindowSeconds": {
+        "title": "Finestra di richieste per IP, secondi",
+        "description": "La finestra temporale mobile in cui viene misurato il limite di richieste per IP. Si applica globalmente, a tutti gli store. Richiede il riavvio dell'applicazione per avere effetto."
+      }
+    }
+  }
+}

@@ -1,8 +1,25 @@
 {
   "permissions": {
-    "otp:create": "Create Otp related data",
-    "otp:read": "View Otp related data",
-    "otp:update": "Update Otp related data",
-    "otp:delete": "Delete Otp related data"
+    "otp:access": "Manage OTP sign-in settings"
+  },
+  "settings": {
+    "OtpLogin": {
+      "Enabled": {
+        "title": "Enable OTP sign-in",
+        "description": "Allow customers to sign in to the storefront with a one-time code emailed to them, instead of a password."
+      },
+      "EmailRequestCooldownSeconds": {
+        "title": "Email cooldown, seconds",
+        "description": "Minimum time between two code requests for the same email. Applies globally, to every store. Requires an app restart to take effect."
+      },
+      "IpRequestLimit": {
+        "title": "Request limit per IP",
+        "description": "Maximum number of code requests allowed from one IP address within the request window below. Applies globally, to every store. Requires an app restart to take effect."
+      },
+      "IpRequestWindowSeconds": {
+        "title": "Request window per IP, seconds",
+        "description": "The rolling time window the request limit per IP is measured over. Applies globally, to every store. Requires an app restart to take effect."
+      }
+    }
   }
 }

@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "otp:access": "Hantera inställningar för engångskodinloggning"
+  },
+  "settings": {
+    "OtpLogin": {
+      "Enabled": {
+        "title": "Aktivera engångskodinloggning",
+        "description": "Låter kunder logga in i butiken med en engångskod som skickas via e-post, i stället för ett lösenord."
+      },
+      "EmailRequestCooldownSeconds": {
+        "title": "Nedkylning för e-post, sekunder",
+        "description": "Minsta tid mellan två kodförfrågningar för samma e-postadress. Gäller globalt, för alla butiker. Kräver omstart av appen för att träda i kraft."
+      },
+      "IpRequestLimit": {
+        "title": "Förfrågningsgräns per IP",
+        "description": "Maximalt antal kodförfrågningar som tillåts från en IP-adress inom förfrågningsfönstret nedan. Gäller globalt, för alla butiker. Kräver omstart av appen för att träda i kraft."
+      },
+      "IpRequestWindowSeconds": {
+        "title": "Förfrågningsfönster per IP, sekunder",
+        "description": "Det rullande tidsfönster som förfrågningsgränsen per IP mäts över. Gäller globalt, för alla butiker. Kräver omstart av appen för att träda i kraft."
+      }
+    }
+  }
+}

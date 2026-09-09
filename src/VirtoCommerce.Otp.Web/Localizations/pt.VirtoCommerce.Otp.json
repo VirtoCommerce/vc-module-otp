@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "otp:access": "Gerenciar configurações de login com OTP"
+  },
+  "settings": {
+    "OtpLogin": {
+      "Enabled": {
+        "title": "Ativar login com OTP",
+        "description": "Permite que os clientes façam login na loja com um código de uso único enviado por e-mail, em vez de uma senha."
+      },
+      "EmailRequestCooldownSeconds": {
+        "title": "Tempo de espera por e-mail, segundos",
+        "description": "Tempo mínimo entre duas solicitações de código para o mesmo e-mail. Aplica-se globalmente, a todas as lojas. Requer reinício do aplicativo para entrar em vigor."
+      },
+      "IpRequestLimit": {
+        "title": "Limite de solicitações por IP",
+        "description": "Número máximo de solicitações de código permitidas a partir de um endereço IP dentro da janela de solicitação abaixo. Aplica-se globalmente, a todas as lojas. Requer reinício do aplicativo para entrar em vigor."
+      },
+      "IpRequestWindowSeconds": {
+        "title": "Janela de solicitações por IP, segundos",
+        "description": "A janela de tempo móvel em que o limite de solicitações por IP é medido. Aplica-se globalmente, a todas as lojas. Requer reinício do aplicativo para entrar em vigor."
+      }
+    }
+  }
+}

@@ -6,11 +6,12 @@
     <NoWarn>NU1608</NoWarn>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="coverlet.collector" Version="8.0.1">
+    <PackageReference Include="coverlet.collector" Version="10.0.1">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.4.0" />
+    <PackageReference Include="Moq" Version="4.20.72" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
@@ -20,6 +21,5 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\VirtoCommerce.Otp.Core\VirtoCommerce.Otp.Core.csproj" />
     <ProjectReference Include="..\..\src\VirtoCommerce.Otp.Data\VirtoCommerce.Otp.Data.csproj" />
-    <ProjectReference Include="..\..\src\VirtoCommerce.Otp.Web\VirtoCommerce.Otp.Web.csproj" />
   </ItemGroup>
 </Project>
