@@ -1,7 +1,4 @@
 {
-  "permissions": {
-    "otp:access": "Hallitse kertakoodikirjautumisen asetuksia"
-  },
   "settings": {
     "OtpLogin": {
       "Enabled": {

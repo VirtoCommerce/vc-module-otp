@@ -1,7 +1,4 @@
 {
-  "permissions": {
-    "otp:access": "Gérer les paramètres de connexion par code à usage unique"
-  },
   "settings": {
     "OtpLogin": {
       "Enabled": {

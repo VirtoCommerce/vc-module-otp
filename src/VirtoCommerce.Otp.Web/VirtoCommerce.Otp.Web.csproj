@@ -8,12 +8,6 @@
     <NoWarn>1591;NU1608</NoWarn>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Remove="dist\**" />
-    <Content Remove="dist\**" />
-    <EmbeddedResource Remove="dist\**" />
-    <None Remove="dist\**" />
-  </ItemGroup>
-  <ItemGroup>
     <Content Update="Localizations\**">
       <CopyToPublishDirectory>Never</CopyToPublishDirectory>
     </Content>
@@ -25,9 +19,8 @@
     <Copy SourceFiles="@(NotificationTemplates)" DestinationFiles="$(PublishDir)\..\%(Identity)" />
   </Target>
   <ItemGroup>
-    <PackageReference Include="VirtoCommerce.NotificationsModule.Core" Version="3.1012.0" />
     <PackageReference Include="VirtoCommerce.NotificationsModule.TemplateLoader.FileSystem" Version="3.1012.0" />
-    <PackageReference Include="VirtoCommerce.Platform.Security" Version="3.1059.0" />
+    <PackageReference Include="VirtoCommerce.Platform.Security" Version="3.1070.0-alpha.13388-vcst-5748" />
     <PackageReference Include="VirtoCommerce.StoreModule.Core" Version="3.1006.0" />
   </ItemGroup>
   <ItemGroup>

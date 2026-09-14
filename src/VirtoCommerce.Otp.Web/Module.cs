@@ -10,9 +10,8 @@ using VirtoCommerce.Otp.Core.Services;
 using VirtoCommerce.Otp.Data.Services;
 using VirtoCommerce.Otp.Web.Security;
 using VirtoCommerce.Platform.Core.Modularity;
-using VirtoCommerce.Platform.Core.Security;
 using VirtoCommerce.Platform.Core.Settings;
-using VirtoCommerce.Platform.Security.ExternalSignIn;
+using VirtoCommerce.Platform.Security.NativeSignIn;
 using VirtoCommerce.StoreModule.Core.Model;
 
 namespace VirtoCommerce.Otp.Web;
@@ -26,13 +25,7 @@ public class Module : IModule, IHasConfiguration
     {
         serviceCollection.AddTransient<IOtpService, OtpService>();
 
-        serviceCollection.AddSingleton<OtpExternalSignInProvider>();
-        serviceCollection.AddSingleton(provider => new ExternalSignInProviderConfiguration
-        {
-            AuthenticationType = OtpExternalSignInProvider.AuthenticationType,
-            Provider = provider.GetRequiredService<OtpExternalSignInProvider>(),
-        });
-        serviceCollection.AddTransient<OtpExternalSignInService>();
+        serviceCollection.AddScoped<INativeSignInProvider, OtpNativeSignInProvider>();
     }
 
     public void PostInitialize(IApplicationBuilder appBuilder)
@@ -42,9 +35,6 @@ public class Module : IModule, IHasConfiguration
         var settingsRegistrar = serviceProvider.GetRequiredService<ISettingsRegistrar>();
         settingsRegistrar.RegisterSettings(ModuleConstants.Settings.AllSettings, ModuleInfo.Id);
         settingsRegistrar.RegisterSettingsForType(ModuleConstants.Settings.StoreSettings, nameof(Store));
-
-        var permissionsRegistrar = serviceProvider.GetRequiredService<IPermissionsRegistrar>();
-        permissionsRegistrar.RegisterPermissions(ModuleInfo.Id, "Otp", ModuleConstants.Security.Permissions.AllPermissions);
 
         var notificationRegistrar = serviceProvider.GetRequiredService<INotificationRegistrar>();
         notificationRegistrar.RegisterNotification<OtpSignInEmailNotification>()

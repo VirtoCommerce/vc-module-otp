@@ -1,7 +1,4 @@
 {
-  "permissions": {
-    "otp:access": "管理一次性验证码登录设置"
-  },
   "settings": {
     "OtpLogin": {
       "Enabled": {

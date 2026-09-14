@@ -21,5 +21,6 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\VirtoCommerce.Otp.Core\VirtoCommerce.Otp.Core.csproj" />
     <ProjectReference Include="..\..\src\VirtoCommerce.Otp.Data\VirtoCommerce.Otp.Data.csproj" />
+    <ProjectReference Include="..\..\src\VirtoCommerce.Otp.Web\VirtoCommerce.Otp.Web.csproj" />
   </ItemGroup>
 </Project>

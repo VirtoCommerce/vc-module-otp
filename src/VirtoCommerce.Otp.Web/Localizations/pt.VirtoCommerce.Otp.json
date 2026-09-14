@@ -1,7 +1,4 @@
 {
-  "permissions": {
-    "otp:access": "Gerenciar configurações de login com OTP"
-  },
   "settings": {
     "OtpLogin": {
       "Enabled": {

@@ -1,7 +1,4 @@
 {
-  "permissions": {
-    "otp:access": "Einstellungen für die Anmeldung per Einmalcode verwalten"
-  },
   "settings": {
     "OtpLogin": {
       "Enabled": {

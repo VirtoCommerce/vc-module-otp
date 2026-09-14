@@ -1,7 +1,4 @@
 {
-  "permissions": {
-    "otp:access": "Hantera inställningar för engångskodinloggning"
-  },
   "settings": {
     "OtpLogin": {
       "Enabled": {

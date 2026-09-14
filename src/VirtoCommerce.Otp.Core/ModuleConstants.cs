@@ -5,19 +5,6 @@ namespace VirtoCommerce.Otp.Core;
 
 public static class ModuleConstants
 {
-    public static class Security
-    {
-        public static class Permissions
-        {
-            public const string Access = "otp:access";
-
-            public static string[] AllPermissions { get; } =
-            [
-                Access,
-            ];
-        }
-    }
-
     public static class Settings
     {
         public static class General

@@ -1,7 +1,4 @@
 {
-  "permissions": {
-    "otp:access": "ワンタイムパスワードによるサインイン設定を管理"
-  },
   "settings": {
     "OtpLogin": {
       "Enabled": {

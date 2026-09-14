@@ -1,7 +1,4 @@
 {
-  "permissions": {
-    "otp:access": "Управление настройками входа по одноразовому коду"
-  },
   "settings": {
     "OtpLogin": {
       "Enabled": {

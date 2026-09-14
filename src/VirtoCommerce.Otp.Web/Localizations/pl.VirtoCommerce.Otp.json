@@ -1,7 +1,4 @@
 {
-  "permissions": {
-    "otp:access": "Zarządzaj ustawieniami logowania kodem jednorazowym"
-  },
   "settings": {
     "OtpLogin": {
       "Enabled": {

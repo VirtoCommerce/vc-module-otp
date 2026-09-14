@@ -1,7 +1,4 @@
 {
-  "permissions": {
-    "otp:access": "Administrer innstillinger for engangskodepålogging"
-  },
   "settings": {
     "OtpLogin": {
       "Enabled": {
