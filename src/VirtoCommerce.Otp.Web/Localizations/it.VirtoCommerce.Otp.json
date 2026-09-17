@@ -1,6 +1,6 @@
 {
   "settings": {
-    "OtpLogin": {
+    "OtpSignIn": {
       "Enabled": {
         "title": "Abilita accesso con OTP",
         "description": "Consente ai clienti di accedere allo storefront con un codice monouso inviato via e-mail, invece di una password."

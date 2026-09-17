@@ -8,10 +8,11 @@ using VirtoCommerce.Otp.Core;
 using VirtoCommerce.Otp.Core.Notifications;
 using VirtoCommerce.Otp.Core.Services;
 using VirtoCommerce.Otp.Data.Services;
-using VirtoCommerce.Otp.Web.Security;
+using VirtoCommerce.Otp.Data.TokenGrants;
+using VirtoCommerce.Platform.Core;
 using VirtoCommerce.Platform.Core.Modularity;
 using VirtoCommerce.Platform.Core.Settings;
-using VirtoCommerce.Platform.Security.NativeSignIn;
+using VirtoCommerce.Platform.Security.TokenGrants;
 using VirtoCommerce.StoreModule.Core.Model;
 
 namespace VirtoCommerce.Otp.Web;
@@ -25,7 +26,7 @@ public class Module : IModule, IHasConfiguration
     {
         serviceCollection.AddTransient<IOtpService, OtpService>();
 
-        serviceCollection.AddScoped<INativeSignInProvider, OtpNativeSignInProvider>();
+        serviceCollection.AddKeyedTransient<ITokenGrantHandler, EmailOtpTokenGrantHandler>(PlatformConstants.Security.GrantTypes.EmailOtpSignIn);
     }
 
     public void PostInitialize(IApplicationBuilder appBuilder)

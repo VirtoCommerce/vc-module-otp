@@ -1,6 +1,6 @@
 {
   "settings": {
-    "OtpLogin": {
+    "OtpSignIn": {
       "Enabled": {
         "title": "Anmeldung per Einmalcode aktivieren",
         "description": "Ermöglicht Kunden die Anmeldung im Storefront mit einem per E-Mail gesendeten Einmalcode anstelle eines Passworts."

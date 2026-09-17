@@ -1,6 +1,6 @@
 {
   "settings": {
-    "OtpLogin": {
+    "OtpSignIn": {
       "Enabled": {
         "title": "Włącz logowanie kodem jednorazowym",
         "description": "Umożliwia klientom logowanie się do sklepu za pomocą jednorazowego kodu wysyłanego e-mailem zamiast hasła."

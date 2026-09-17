@@ -1,6 +1,6 @@
 {
   "settings": {
-    "OtpLogin": {
+    "OtpSignIn": {
       "Enabled": {
         "title": "Activer la connexion par code à usage unique",
         "description": "Permet aux clients de se connecter à la boutique avec un code à usage unique envoyé par e-mail, au lieu d'un mot de passe."

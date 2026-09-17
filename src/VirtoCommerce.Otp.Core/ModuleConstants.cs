@@ -11,7 +11,7 @@ public static class ModuleConstants
         {
             public static readonly SettingDescriptor Enabled = new()
             {
-                Name = "OtpLogin.Enabled",
+                Name = "OtpSignIn.Enabled",
                 GroupName = "OTP Sign-In|General",
                 ValueType = SettingValueType.Boolean,
                 DefaultValue = false,

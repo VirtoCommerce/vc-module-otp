@@ -1,6 +1,6 @@
 {
   "settings": {
-    "OtpLogin": {
+    "OtpSignIn": {
       "Enabled": {
         "title": "Enable OTP sign-in",
         "description": "Allow customers to sign in to the storefront with a one-time code emailed to them, instead of a password."

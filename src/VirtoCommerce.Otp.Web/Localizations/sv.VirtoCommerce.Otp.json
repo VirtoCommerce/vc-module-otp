@@ -1,6 +1,6 @@
 {
   "settings": {
-    "OtpLogin": {
+    "OtpSignIn": {
       "Enabled": {
         "title": "Aktivera engångskodinloggning",
         "description": "Låter kunder logga in i butiken med en engångskod som skickas via e-post, i stället för ett lösenord."

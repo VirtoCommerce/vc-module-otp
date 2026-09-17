@@ -1,8 +1,8 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace VirtoCommerce.Otp.Web.Models;
+namespace VirtoCommerce.Otp.Core.Models;
 
-public class OtpVerifyCodeRequest
+public class EmailOtpRequestCodeRequest
 {
     [Required]
     public string StoreId { get; set; }
@@ -11,8 +11,4 @@ public class OtpVerifyCodeRequest
     [EmailAddress]
     [MaxLength(254)]
     public string Email { get; set; }
-
-    [Required]
-    [MaxLength(32)]
-    public string Code { get; set; }
 }

@@ -1,6 +1,6 @@
 {
   "settings": {
-    "OtpLogin": {
+    "OtpSignIn": {
       "Enabled": {
         "title": "Aktiver engangskodepålogging",
         "description": "Lar kunder logge på nettbutikken med en engangskode sendt på e-post, i stedet for passord."

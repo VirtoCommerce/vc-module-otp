@@ -50,8 +50,7 @@ public class OtpServiceTests
     [Fact]
     public async Task RequestCodeAsync_Should_ReturnSent_But_SkipGeneration_When_NoUserForEmail()
     {
-        // Anti-enumeration: the response is identical to the "user exists" case, but nothing is generated
-        // or sent, since Identity's token APIs require an actual user to operate on.
+        // Anti-enumeration: response matches the "user exists" case, but nothing is generated or sent.
         var context = CreateContext();
         context.UserManager.Setup(x => x.FindByEmailAsync(_email)).ReturnsAsync((ApplicationUser)null);
 
@@ -75,8 +74,7 @@ public class OtpServiceTests
     [Fact]
     public async Task VerifyCodeAsync_Should_ReturnInvalidCode_When_NoUserForEmail()
     {
-        // Anti-enumeration: an unknown email must be indistinguishable from a wrong code, otherwise this
-        // endpoint (unlike RequestCodeAsync) could be used to check whether an email is registered.
+        // Anti-enumeration: an unknown email must look the same as a wrong code.
         var context = CreateContext();
         context.UserManager.Setup(x => x.FindByEmailAsync(_email)).ReturnsAsync((ApplicationUser)null);
 
@@ -120,8 +118,7 @@ public class OtpServiceTests
     [Fact]
     public async Task VerifyCodeAsync_Should_ReturnLocked_When_FailedAttemptCrossesTheThreshold()
     {
-        // Shared with password sign-in by design: the platform's standard IdentityOptions.Lockout already
-        // gates repeated wrong guesses, so IsLockedOutAsync flips to true right after AccessFailedAsync.
+        // Lockout is the platform's shared IdentityOptions.Lockout, not OTP-specific logic.
         var context = CreateContext();
         var user = new ApplicationUser { Email = _email };
         var lockoutEnd = DateTimeOffset.UtcNow.AddMinutes(15);

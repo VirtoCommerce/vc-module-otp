@@ -1,6 +1,6 @@
 {
   "settings": {
-    "OtpLogin": {
+    "OtpSignIn": {
       "Enabled": {
         "title": "Ativar login com OTP",
         "description": "Permite que os clientes façam login na loja com um código de uso único enviado por e-mail, em vez de uma senha."

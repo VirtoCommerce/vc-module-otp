@@ -3,14 +3,11 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using VirtoCommerce.Otp.Core.Models;
 using VirtoCommerce.Otp.Core.Services;
-using VirtoCommerce.Otp.Web.Models;
 
 namespace VirtoCommerce.Otp.Web.Controllers.Api;
 
-// Verification here is purely for the storefront's UX (rich per-outcome feedback: invalid code,
-// locked, disabled). Completing the actual sign-in is a separate step: the client sends the same
-// email/code to POST /connect/token with grant_type=native_sign_in&provider=OTP, handled by
-// OtpNativeSignInProvider. Re-verifying there is safe: a code is not consumed by checking it.
+// Verification here is only for storefront UX feedback; the actual sign-in happens via
+// grant_type=email_otp_sign_in at /connect/token. Re-verifying is safe since checking a code doesn't consume it.
 [ApiController]
 [Route("api/otp")]
 [AllowAnonymous]
@@ -25,18 +22,18 @@ public class OtpController : Controller
 
     [HttpPost]
     [Route("request")]
-    public async Task<ActionResult<OtpRequestResult>> RequestCode([FromBody] OtpRequestCodeRequest request)
+    public async Task<ActionResult<OtpRequestResult>> RequestCode([FromBody] EmailOtpRequestCodeRequest request)
     {
         var result = await _otpService.RequestCodeAsync(request.StoreId, request.Email);
+
         return Ok(result);
     }
 
     [HttpPost]
     [Route("verify")]
-    public async Task<ActionResult<OtpVerifyResult>> VerifyCode([FromBody] OtpVerifyCodeRequest request)
+    public async Task<ActionResult<OtpVerifyResult>> VerifyCode([FromBody] EmailOtpVerifyCodeRequest request)
     {
-        var email = request.Email?.Trim();
-        var result = await _otpService.VerifyCodeAsync(request.StoreId, email, request.Code);
+        var result = await _otpService.VerifyCodeAsync(request.StoreId, request.Email, request.Code);
 
         return Ok(result);
     }

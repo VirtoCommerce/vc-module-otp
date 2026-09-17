@@ -44,23 +44,32 @@ public class OtpService : IOtpService
 
         var delayedResponse = DelayedResponse.Create(nameof(OtpService), nameof(RequestCodeAsync));
 
-        var enabled = await GetStoreSettingAsync<bool>(StoreSettings.Enabled, storeId);
+        var enabled = await GetStoreSettingAsync(StoreSettings.Enabled, storeId);
         if (!enabled)
         {
             await delayedResponse.FailAsync();
-            return new OtpRequestResult { Outcome = OtpRequestOutcome.OtpDisabled };
+
+            return new OtpRequestResult
+            {
+                Outcome = OtpRequestOutcome.OtpDisabled
+            };
         }
 
         var user = await _userManager.FindByEmailAsync(email);
         if (user != null)
         {
             var code = await _userManager.GenerateUserTokenAsync(user, TokenOptions.DefaultEmailProvider, TokenPurpose);
+
             await SendCodeNotificationAsync(storeId, email, code);
         }
 
         await delayedResponse.SucceedAsync();
 
-        return new OtpRequestResult { Outcome = OtpRequestOutcome.CodeSent, MaskedEmail = MaskEmail(email) };
+        return new OtpRequestResult
+        {
+            Outcome = OtpRequestOutcome.CodeSent,
+            MaskedEmail = MaskEmail(email)
+        };
     }
 
     public async Task<OtpVerifyResult> VerifyCodeAsync(string storeId, string email, string code)
@@ -69,10 +78,15 @@ public class OtpService : IOtpService
         ArgumentException.ThrowIfNullOrEmpty(email);
         ArgumentException.ThrowIfNullOrEmpty(code);
 
-        var enabled = await GetStoreSettingAsync<bool>(StoreSettings.Enabled, storeId);
+        email = email.Trim();
+
+        var enabled = await GetStoreSettingAsync(StoreSettings.Enabled, storeId);
         if (!enabled)
         {
-            return new OtpVerifyResult { Outcome = OtpVerifyOutcome.OtpDisabled };
+            return new OtpVerifyResult
+            {
+                Outcome = OtpVerifyOutcome.OtpDisabled
+            };
         }
 
         var delayedResponse = DelayedResponse.Create(nameof(OtpService), nameof(VerifyCodeAsync));
@@ -81,13 +95,22 @@ public class OtpService : IOtpService
         if (user == null)
         {
             await delayedResponse.FailAsync();
-            return new OtpVerifyResult { Outcome = OtpVerifyOutcome.InvalidCode };
+
+            return new OtpVerifyResult
+            {
+                Outcome = OtpVerifyOutcome.InvalidCode
+            };
         }
 
         if (await _userManager.IsLockedOutAsync(user))
         {
             await delayedResponse.SucceedAsync();
-            return new OtpVerifyResult { Outcome = OtpVerifyOutcome.AccountLocked, LockoutSecondsRemaining = await GetLockoutSecondsRemainingAsync(user) };
+
+            return new OtpVerifyResult
+            {
+                Outcome = OtpVerifyOutcome.AccountLocked,
+                LockoutSecondsRemaining = await GetLockoutSecondsRemainingAsync(user)
+            };
         }
 
         var isValid = await _userManager.VerifyUserTokenAsync(user, TokenOptions.DefaultEmailProvider, TokenPurpose, code);
@@ -98,17 +121,30 @@ public class OtpService : IOtpService
             if (await _userManager.IsLockedOutAsync(user))
             {
                 await delayedResponse.SucceedAsync();
-                return new OtpVerifyResult { Outcome = OtpVerifyOutcome.AccountLocked, LockoutSecondsRemaining = await GetLockoutSecondsRemainingAsync(user) };
+                return new OtpVerifyResult
+                {
+                    Outcome = OtpVerifyOutcome.AccountLocked,
+                    LockoutSecondsRemaining = await GetLockoutSecondsRemainingAsync(user)
+                };
             }
 
             await delayedResponse.SucceedAsync();
-            return new OtpVerifyResult { Outcome = OtpVerifyOutcome.InvalidCode };
+
+            return new OtpVerifyResult
+            {
+                Outcome = OtpVerifyOutcome.InvalidCode
+            };
         }
 
         await _userManager.ResetAccessFailedCountAsync(user);
 
         await delayedResponse.SucceedAsync();
-        return new OtpVerifyResult { Outcome = OtpVerifyOutcome.Success };
+
+        return new OtpVerifyResult
+        {
+            Outcome = OtpVerifyOutcome.Success,
+            User = user
+        };
     }
 
     protected virtual async Task<int?> GetLockoutSecondsRemainingAsync(ApplicationUser user)
@@ -132,16 +168,16 @@ public class OtpService : IOtpService
         await _notificationSender.ScheduleSendNotificationAsync(notification);
     }
 
-    protected virtual async Task<T> GetStoreSettingAsync<T>(SettingDescriptor descriptor, string storeId)
+    protected virtual async Task<bool> GetStoreSettingAsync(SettingDescriptor descriptor, string storeId)
     {
         var setting = await _settingsManager.GetObjectSettingAsync(descriptor.Name, nameof(Store), storeId);
 
-        if (setting?.Value != null && SettingValueConverter.TryConvert<T>(setting.Value, out var value))
+        if (setting?.Value != null && SettingValueConverter.TryConvert<bool>(setting.Value, out var value))
         {
             return value;
         }
 
-        return descriptor.DefaultValue is T defaultValue ? defaultValue : default;
+        return descriptor.DefaultValue is true;
     }
 
     protected virtual string MaskEmail(string email)
