@@ -148,9 +148,15 @@ public class EmailOtpTokenGrantHandler : ITokenGrantHandler
                 Destinations.AccessToken
             };
 
-            if (claim.Type == Claims.Name && principal.HasScope(Scopes.Profile) ||
-                claim.Type == Claims.Email && principal.HasScope(Scopes.Email) ||
-                claim.Type == Claims.Role && principal.HasScope(Scopes.Roles))
+            var requiredScope = claim.Type switch
+            {
+                Claims.Name => Scopes.Profile,
+                Claims.Email => Scopes.Email,
+                Claims.Role => Scopes.Roles,
+                _ => null,
+            };
+
+            if (requiredScope != null && principal.HasScope(requiredScope))
             {
                 destinations.Add(Destinations.IdentityToken);
             }
