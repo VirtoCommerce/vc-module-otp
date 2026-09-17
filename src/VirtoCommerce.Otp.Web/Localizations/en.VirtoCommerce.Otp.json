@@ -1,8 +1,10 @@
 {
-  "permissions": {
-    "otp:create": "Create Otp related data",
-    "otp:read": "View Otp related data",
-    "otp:update": "Update Otp related data",
-    "otp:delete": "Delete Otp related data"
+  "settings": {
+    "OtpSignIn": {
+      "Enabled": {
+        "title": "Enable OTP sign-in",
+        "description": "Allow customers to sign in to the storefront with a one-time code emailed to them, instead of a password."
+      }
+    }
   }
 }

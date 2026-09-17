@@ -1,0 +1,10 @@
+{
+  "settings": {
+    "OtpSignIn": {
+      "Enabled": {
+        "title": "Ota kertakoodikirjautuminen käyttöön",
+        "description": "Antaa asiakkaiden kirjautua verkkokauppaan sähköpostitse lähetetyllä kertakoodilla salasanan sijaan."
+      }
+    }
+  }
+}

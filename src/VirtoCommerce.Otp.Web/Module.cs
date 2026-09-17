@@ -1,13 +1,19 @@
-using GraphQL.MicrosoftDI;
+using System.IO;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using VirtoCommerce.Platform.Core.Modularity;
-using VirtoCommerce.Platform.Core.Security;
-using VirtoCommerce.Xapi.Core.Extensions;
-using VirtoCommerce.Xapi.Core.Infrastructure;
+using VirtoCommerce.NotificationsModule.Core.Services;
+using VirtoCommerce.NotificationsModule.TemplateLoader.FileSystem;
 using VirtoCommerce.Otp.Core;
-using VirtoCommerce.Otp.Data;
+using VirtoCommerce.Otp.Core.Notifications;
+using VirtoCommerce.Otp.Core.Services;
+using VirtoCommerce.Otp.Data.Services;
+using VirtoCommerce.Otp.Data.TokenGrants;
+using VirtoCommerce.Platform.Core;
+using VirtoCommerce.Platform.Core.Modularity;
+using VirtoCommerce.Platform.Core.Settings;
+using VirtoCommerce.Platform.Security.TokenGrants;
+using VirtoCommerce.StoreModule.Core.Model;
 
 namespace VirtoCommerce.Otp.Web;
 
@@ -18,32 +24,22 @@ public class Module : IModule, IHasConfiguration
 
     public void Initialize(IServiceCollection serviceCollection)
     {
-        // Override models
-        //AbstractTypeFactory<OriginalModel>.OverrideType<OriginalModel, ExtendedModel>().MapToType<ExtendedEntity>();
-        //AbstractTypeFactory<OriginalEntity>.OverrideType<OriginalEntity, ExtendedEntity>();
+        serviceCollection.AddTransient<IOtpService, OtpService>();
 
-        // Register services
-        //serviceCollection.AddTransient<IMyService, MyService>();
-
-        // Register GraphQL schema
-        _ = new GraphQLBuilder(serviceCollection, builder =>
-        {
-            builder.AddSchema(serviceCollection, typeof(XapiAssemblyMarker));
-        });
-
-        serviceCollection.AddSingleton<ScopedSchemaFactory<XapiAssemblyMarker>>();
+        serviceCollection.AddKeyedTransient<ITokenGrantHandler, EmailOtpTokenGrantHandler>(PlatformConstants.Security.GrantTypes.EmailOtpSignIn);
     }
 
     public void PostInitialize(IApplicationBuilder appBuilder)
     {
         var serviceProvider = appBuilder.ApplicationServices;
 
-        // Register permissions
-        var permissionsRegistrar = serviceProvider.GetRequiredService<IPermissionsRegistrar>();
-        permissionsRegistrar.RegisterPermissions(ModuleInfo.Id, "Otp", ModuleConstants.Security.Permissions.AllPermissions);
+        var settingsRegistrar = serviceProvider.GetRequiredService<ISettingsRegistrar>();
+        settingsRegistrar.RegisterSettings(ModuleConstants.Settings.AllSettings, ModuleInfo.Id);
+        settingsRegistrar.RegisterSettingsForType(ModuleConstants.Settings.StoreSettings, nameof(Store));
 
-        // Register partial GraphQL schema
-        appBuilder.UseScopedSchema<XapiAssemblyMarker>("otp");
+        var notificationRegistrar = serviceProvider.GetRequiredService<INotificationRegistrar>();
+        notificationRegistrar.RegisterNotification<OtpSignInEmailNotification>()
+            .WithTemplatesFromPath(Path.Combine(ModuleInfo.FullPhysicalPath, "NotificationTemplates"));
     }
 
     public void Uninstall()

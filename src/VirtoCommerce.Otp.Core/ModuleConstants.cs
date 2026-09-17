@@ -1,23 +1,38 @@
+using System.Collections.Generic;
+using VirtoCommerce.Platform.Core.Settings;
+
 namespace VirtoCommerce.Otp.Core;
 
 public static class ModuleConstants
 {
-    public static class Security
+    public static class Settings
     {
-        public static class Permissions
+        public static class General
         {
-            public const string Create = "otp:create";
-            public const string Read = "otp:read";
-            public const string Update = "otp:update";
-            public const string Delete = "otp:delete";
+            public static readonly SettingDescriptor Enabled = new()
+            {
+                Name = "OtpSignIn.Enabled",
+                GroupName = "OTP Sign-In|General",
+                ValueType = SettingValueType.Boolean,
+                DefaultValue = false,
+                IsPublic = true,
+            };
+        }
 
-            public static string[] AllPermissions { get; } =
-            [
-                Create,
-                Read,
-                Update,
-                Delete,
-            ];
+        public static IEnumerable<SettingDescriptor> StoreSettings
+        {
+            get
+            {
+                yield return General.Enabled;
+            }
+        }
+
+        public static IEnumerable<SettingDescriptor> AllSettings
+        {
+            get
+            {
+                yield return General.Enabled;
+            }
         }
     }
 }

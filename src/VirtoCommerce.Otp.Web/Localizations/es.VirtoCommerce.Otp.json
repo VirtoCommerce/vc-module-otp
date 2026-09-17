@@ -1,0 +1,10 @@
+{
+  "settings": {
+    "OtpSignIn": {
+      "Enabled": {
+        "title": "Habilitar inicio de sesión con OTP",
+        "description": "Permite a los clientes iniciar sesión en la tienda con un código de un solo uso enviado por correo electrónico, en lugar de una contraseña."
+      }
+    }
+  }
+}
