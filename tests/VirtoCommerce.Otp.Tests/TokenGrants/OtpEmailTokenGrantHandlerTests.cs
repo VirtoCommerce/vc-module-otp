@@ -42,7 +42,7 @@ public class OtpEmailTokenGrantHandlerTests
         var context = CreateContext();
         var request = CreateRequest(storeId: null, email: _email, code: _code);
 
-        var result = await context.Handler.HandleAsync(request, CreateRequestContext(request));
+        var result = await context.Handler.HandleAsync(CreateRequestContext(request));
 
         Assert.False(result.Success);
         context.OtpService.Verify(x => x.VerifyCodeAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
@@ -56,7 +56,7 @@ public class OtpEmailTokenGrantHandlerTests
             .ReturnsAsync(new OtpVerifyResult { Outcome = OtpVerifyOutcome.InvalidCode });
 
         var request = CreateRequest(_storeId, _email, _code);
-        var result = await context.Handler.HandleAsync(request, CreateRequestContext(request));
+        var result = await context.Handler.HandleAsync(CreateRequestContext(request));
 
         Assert.False(result.Success);
         context.SignInManager.Verify(x => x.CanSignInAsync(It.IsAny<ApplicationUser>()), Times.Never);
@@ -72,7 +72,7 @@ public class OtpEmailTokenGrantHandlerTests
         context.SignInManager.Setup(x => x.CanSignInAsync(user)).ReturnsAsync(false);
 
         var request = CreateRequest(_storeId, _email, _code);
-        var result = await context.Handler.HandleAsync(request, CreateRequestContext(request));
+        var result = await context.Handler.HandleAsync(CreateRequestContext(request));
 
         Assert.False(result.Success);
     }
@@ -92,7 +92,7 @@ public class OtpEmailTokenGrantHandlerTests
         context.SignInManager.Setup(x => x.CanSignInAsync(user)).ReturnsAsync(true);
 
         var request = CreateRequest(_storeId, _email, _code);
-        var result = await context.Handler.HandleAsync(request, CreateRequestContext(request));
+        var result = await context.Handler.HandleAsync(CreateRequestContext(request));
 
         Assert.False(result.Success);
         Assert.Equal(validatorError, result.Error);
@@ -111,7 +111,7 @@ public class OtpEmailTokenGrantHandlerTests
         context.UserManager.Setup(x => x.UpdateAsync(user)).ThrowsAsync(new DuplicateEmailException("duplicate"));
 
         var request = CreateRequest(_storeId, _email, _code);
-        var result = await context.Handler.HandleAsync(request, CreateRequestContext(request));
+        var result = await context.Handler.HandleAsync(CreateRequestContext(request));
 
         Assert.False(result.Success);
     }
@@ -128,7 +128,7 @@ public class OtpEmailTokenGrantHandlerTests
         context.SignInManager.Setup(x => x.CreateUserPrincipalAsync(user)).ReturnsAsync(new ClaimsPrincipal(new ClaimsIdentity()));
 
         var request = CreateRequest(_storeId, _email, _code);
-        var result = await context.Handler.HandleAsync(request, CreateRequestContext(request));
+        var result = await context.Handler.HandleAsync(CreateRequestContext(request));
 
         Assert.True(result.Success);
         Assert.NotNull(result.Principal);

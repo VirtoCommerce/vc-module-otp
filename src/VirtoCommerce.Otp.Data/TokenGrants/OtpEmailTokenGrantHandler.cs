@@ -55,9 +55,9 @@ public class OtpEmailTokenGrantHandler : ITokenGrantHandler
 
     public string GrantType => ModuleConstants.Security.GrantType;
 
-    public async Task<TokenGrantResult> HandleAsync(OpenIddictRequest request, TokenRequestContext context)
+    public async Task<TokenGrantResult> HandleAsync(TokenRequestContext context)
     {
-        var user = await ResolveUserAsync(request);
+        var user = await ResolveUserAsync(context.Request);
         if (user == null)
         {
             return TokenGrantResult.Failed(SecurityErrorDescriber.LoginFailed());
