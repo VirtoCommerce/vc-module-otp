@@ -11,5 +11,12 @@
   </PropertyGroup>
   <ItemGroup>
     <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-rvv3-g6hj-g44x" />
+    <!-- System.Security.Cryptography.Xml, pulled in transitively via OpenIddict.AspNetCore -> Microsoft.AspNetCore.DataProtection;
+         it's framework-provided under net10.0, so NuGet package pruning blocks pinning a patched version explicitly. -->
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-23rf-6693-g89p" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-8q5v-6pqq-x66h" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-cvvh-rhrc-wg4q" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-g8r8-53c2-pm3f" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-mmjf-rqrv-855v" />
   </ItemGroup>
 </Project>

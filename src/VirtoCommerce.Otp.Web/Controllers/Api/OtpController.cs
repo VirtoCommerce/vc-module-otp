@@ -7,7 +7,7 @@ using VirtoCommerce.Otp.Core.Services;
 namespace VirtoCommerce.Otp.Web.Controllers.Api;
 
 // Verification here is only for storefront UX feedback; the actual sign-in happens via
-// grant_type=email_otp_sign_in at /connect/token. Re-verifying is safe since checking a code doesn't consume it.
+// grant_type=otp_email at /connect/token. Re-verifying is safe since checking a code doesn't consume it.
 [ApiController]
 [Route("api/otp")]
 [AllowAnonymous]
@@ -22,7 +22,7 @@ public class OtpController : Controller
 
     [HttpPost]
     [Route("request")]
-    public async Task<ActionResult<OtpRequestResult>> RequestCode([FromBody] EmailOtpRequestCodeRequest request)
+    public async Task<ActionResult<OtpRequestResult>> RequestCode([FromBody] OtpEmailRequestCodeRequest request)
     {
         var result = await _otpService.RequestCodeAsync(request.StoreId, request.Email);
 
@@ -31,7 +31,7 @@ public class OtpController : Controller
 
     [HttpPost]
     [Route("verify")]
-    public async Task<ActionResult<OtpVerifyResult>> VerifyCode([FromBody] EmailOtpVerifyCodeRequest request)
+    public async Task<ActionResult<OtpVerifyResult>> VerifyCode([FromBody] OtpEmailVerifyCodeRequest request)
     {
         var result = await _otpService.VerifyCodeAsync(request.StoreId, request.Email, request.Code);
 

@@ -19,6 +19,7 @@
     <Copy SourceFiles="@(NotificationTemplates)" DestinationFiles="$(PublishDir)\..\%(Identity)" />
   </Target>
   <ItemGroup>
+    <PackageReference Include="OpenIddict.AspNetCore" Version="7.5.0" />
     <PackageReference Include="VirtoCommerce.NotificationsModule.TemplateLoader.FileSystem" Version="3.1012.0" />
   </ItemGroup>
   <ItemGroup>

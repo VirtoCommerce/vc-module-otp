@@ -6,9 +6,9 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
 using OpenIddict.Abstractions;
+using VirtoCommerce.Otp.Core;
 using VirtoCommerce.Otp.Core.Models;
 using VirtoCommerce.Otp.Core.Services;
-using VirtoCommerce.Platform.Core;
 using VirtoCommerce.Platform.Core.Common;
 using VirtoCommerce.Platform.Core.Events;
 using VirtoCommerce.Platform.Core.Security;
@@ -22,10 +22,10 @@ using static OpenIddict.Abstractions.OpenIddictConstants;
 namespace VirtoCommerce.Otp.Data.TokenGrants;
 
 /// <summary>
-/// Handles the "email_otp_sign_in" token grant: verifies the emailed code via <see cref="IOtpService"/>
+/// Handles the "otp_email" token grant: verifies the emailed code via <see cref="IOtpService"/>
 /// and signs in the matching user.
 /// </summary>
-public class EmailOtpTokenGrantHandler : ITokenGrantHandler
+public class OtpEmailTokenGrantHandler : ITokenGrantHandler
 {
     private readonly IOtpService _otpService;
     private readonly SignInManager<ApplicationUser> _signInManager;
@@ -35,7 +35,7 @@ public class EmailOtpTokenGrantHandler : ITokenGrantHandler
     private readonly IEnumerable<ITokenRequestHandler> _requestHandlers;
     private readonly IEventPublisher _eventPublisher;
 
-    public EmailOtpTokenGrantHandler(
+    public OtpEmailTokenGrantHandler(
         IOtpService otpService,
         SignInManager<ApplicationUser> signInManager,
         IOptions<IdentityOptions> identityOptions,
@@ -53,7 +53,7 @@ public class EmailOtpTokenGrantHandler : ITokenGrantHandler
         _eventPublisher = eventPublisher;
     }
 
-    public string GrantType => PlatformConstants.Security.GrantTypes.EmailOtpSignIn;
+    public string GrantType => ModuleConstants.Security.GrantType;
 
     public async Task<TokenGrantResult> HandleAsync(OpenIddictRequest request, TokenRequestContext context)
     {

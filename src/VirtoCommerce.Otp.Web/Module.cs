@@ -9,7 +9,6 @@ using VirtoCommerce.Otp.Core.Notifications;
 using VirtoCommerce.Otp.Core.Services;
 using VirtoCommerce.Otp.Data.Services;
 using VirtoCommerce.Otp.Data.TokenGrants;
-using VirtoCommerce.Platform.Core;
 using VirtoCommerce.Platform.Core.Modularity;
 using VirtoCommerce.Platform.Core.Settings;
 using VirtoCommerce.Platform.Security.TokenGrants;
@@ -26,7 +25,9 @@ public class Module : IModule, IHasConfiguration
     {
         serviceCollection.AddTransient<IOtpService, OtpService>();
 
-        serviceCollection.AddKeyedTransient<ITokenGrantHandler, EmailOtpTokenGrantHandler>(PlatformConstants.Security.GrantTypes.EmailOtpSignIn);
+        serviceCollection.AddTransient<ITokenGrantHandler, OtpEmailTokenGrantHandler>();
+
+        serviceCollection.AddOpenIddict().AddServer(serverBuilder => serverBuilder.AllowCustomFlow(ModuleConstants.Security.GrantType));
     }
 
     public void PostInitialize(IApplicationBuilder appBuilder)

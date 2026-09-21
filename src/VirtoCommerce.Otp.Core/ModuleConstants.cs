@@ -5,6 +5,11 @@ namespace VirtoCommerce.Otp.Core;
 
 public static class ModuleConstants
 {
+    public static class Security
+    {
+        public const string GrantType = "otp_email";
+    }
+
     public static class Settings
     {
         public static class General

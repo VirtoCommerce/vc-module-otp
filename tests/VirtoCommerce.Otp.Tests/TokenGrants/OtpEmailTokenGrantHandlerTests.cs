@@ -8,10 +8,10 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Moq;
 using OpenIddict.Abstractions;
+using VirtoCommerce.Otp.Core;
 using VirtoCommerce.Otp.Core.Models;
 using VirtoCommerce.Otp.Core.Services;
 using VirtoCommerce.Otp.Data.TokenGrants;
-using VirtoCommerce.Platform.Core;
 using VirtoCommerce.Platform.Core.Events;
 using VirtoCommerce.Platform.Core.Security;
 using VirtoCommerce.Platform.Core.Security.Events;
@@ -22,18 +22,18 @@ using Xunit;
 namespace VirtoCommerce.Otp.Tests.TokenGrants;
 
 [Trait("Category", "Unit")]
-public class EmailOtpTokenGrantHandlerTests
+public class OtpEmailTokenGrantHandlerTests
 {
     private const string _storeId = "test-store";
     private const string _email = "buyer@acme.com";
     private const string _code = "123456";
 
     [Fact]
-    public void GrantType_Should_Be_EmailOtpSignIn()
+    public void GrantType_Should_Be_OtpEmail()
     {
         var context = CreateContext();
 
-        Assert.Equal(PlatformConstants.Security.GrantTypes.EmailOtpSignIn, context.Handler.GrantType);
+        Assert.Equal(ModuleConstants.Security.GrantType, context.Handler.GrantType);
     }
 
     [Fact]
@@ -139,7 +139,7 @@ public class EmailOtpTokenGrantHandlerTests
 
     private static OpenIddictRequest CreateRequest(string storeId, string email, string code)
     {
-        var request = new OpenIddictRequest { GrantType = PlatformConstants.Security.GrantTypes.EmailOtpSignIn };
+        var request = new OpenIddictRequest { GrantType = ModuleConstants.Security.GrantType };
         request.SetParameter("storeId", storeId);
         request.SetParameter("email", email);
         request.SetParameter("code", code);
@@ -175,7 +175,7 @@ public class EmailOtpTokenGrantHandlerTests
 
         var eventPublisher = new Mock<IEventPublisher>();
 
-        var handler = new EmailOtpTokenGrantHandler(
+        var handler = new OtpEmailTokenGrantHandler(
             otpService.Object,
             signInManager.Object,
             identityOptions,
@@ -188,7 +188,7 @@ public class EmailOtpTokenGrantHandlerTests
     }
 
     private sealed record TestContext(
-        EmailOtpTokenGrantHandler Handler,
+        OtpEmailTokenGrantHandler Handler,
         Mock<IOtpService> OtpService,
         Mock<SignInManager<ApplicationUser>> SignInManager,
         Mock<UserManager<ApplicationUser>> UserManager,
