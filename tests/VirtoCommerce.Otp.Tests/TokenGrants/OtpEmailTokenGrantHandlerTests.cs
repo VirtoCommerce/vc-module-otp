@@ -45,11 +45,12 @@ public class OtpEmailTokenGrantHandlerTests
         var result = await context.Handler.HandleAsync(CreateRequestContext(request));
 
         Assert.False(result.Success);
+        Assert.Equal("invalid_code", result.Error.Code);
         context.OtpService.Verify(x => x.VerifyCodeAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
     }
 
     [Fact]
-    public async Task HandleAsync_Should_ReturnFailed_When_CodeVerificationFails()
+    public async Task HandleAsync_Should_ReturnInvalidCode_When_CodeVerificationFails()
     {
         var context = CreateContext();
         context.OtpService.Setup(x => x.VerifyCodeAsync(_storeId, _email, _code))
@@ -59,7 +60,37 @@ public class OtpEmailTokenGrantHandlerTests
         var result = await context.Handler.HandleAsync(CreateRequestContext(request));
 
         Assert.False(result.Success);
+        Assert.Equal("invalid_code", result.Error.Code);
         context.SignInManager.Verify(x => x.CanSignInAsync(It.IsAny<ApplicationUser>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task HandleAsync_Should_ReturnAccountLocked_With_SecondsRemaining_When_UserIsLockedOut()
+    {
+        var context = CreateContext();
+        context.OtpService.Setup(x => x.VerifyCodeAsync(_storeId, _email, _code))
+            .ReturnsAsync(new OtpVerifyResult { Outcome = OtpVerifyOutcome.AccountLocked, LockoutSecondsRemaining = 245 });
+
+        var request = CreateRequest(_storeId, _email, _code);
+        var result = await context.Handler.HandleAsync(CreateRequestContext(request));
+
+        Assert.False(result.Success);
+        Assert.Equal("account_locked", result.Error.Code);
+        Assert.Equal(245, result.Error.LockoutSecondsRemaining);
+    }
+
+    [Fact]
+    public async Task HandleAsync_Should_ReturnOtpDisabled_When_OtpIsDisabledForTheStore()
+    {
+        var context = CreateContext();
+        context.OtpService.Setup(x => x.VerifyCodeAsync(_storeId, _email, _code))
+            .ReturnsAsync(new OtpVerifyResult { Outcome = OtpVerifyOutcome.OtpDisabled });
+
+        var request = CreateRequest(_storeId, _email, _code);
+        var result = await context.Handler.HandleAsync(CreateRequestContext(request));
+
+        Assert.False(result.Success);
+        Assert.Equal("otp_disabled", result.Error.Code);
     }
 
     [Fact]

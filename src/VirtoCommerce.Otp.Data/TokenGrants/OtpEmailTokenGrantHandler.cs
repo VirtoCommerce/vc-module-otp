@@ -57,11 +57,13 @@ public class OtpEmailTokenGrantHandler : ITokenGrantHandler
 
     public async Task<TokenGrantResult> HandleAsync(TokenRequestContext context)
     {
-        var user = await ResolveUserAsync(context.Request);
-        if (user == null)
+        var verifyResult = await VerifyAsync(context.Request);
+        if (verifyResult.Outcome != OtpVerifyOutcome.Success)
         {
-            return TokenGrantResult.Failed(SecurityErrorDescriber.LoginFailed());
+            return TokenGrantResult.Failed(BuildErrorResponse(verifyResult));
         }
+
+        var user = verifyResult.User;
 
         if (!await _signInManager.CanSignInAsync(user))
         {
@@ -105,7 +107,7 @@ public class OtpEmailTokenGrantHandler : ITokenGrantHandler
         return TokenGrantResult.SignedIn(ticket.Principal, ticket.Properties, context.AuthenticationScheme);
     }
 
-    private async Task<ApplicationUser> ResolveUserAsync(OpenIddictRequest request)
+    private async Task<OtpVerifyResult> VerifyAsync(OpenIddictRequest request)
     {
         var storeId = (string)request.GetParameter("storeId");
         var email = (string)request.GetParameter("email");
@@ -113,12 +115,36 @@ public class OtpEmailTokenGrantHandler : ITokenGrantHandler
 
         if (string.IsNullOrEmpty(storeId) || string.IsNullOrEmpty(email) || string.IsNullOrEmpty(code))
         {
-            return null;
+            return new OtpVerifyResult { Outcome = OtpVerifyOutcome.InvalidCode };
         }
 
-        var result = await _otpService.VerifyCodeAsync(storeId, email, code);
+        return await _otpService.VerifyCodeAsync(storeId, email, code);
+    }
 
-        return result.Outcome == OtpVerifyOutcome.Success ? result.User : null;
+    private static TokenResponse BuildErrorResponse(OtpVerifyResult verifyResult)
+    {
+        return verifyResult.Outcome switch
+        {
+            OtpVerifyOutcome.AccountLocked => new TokenResponse
+            {
+                Error = Errors.InvalidGrant,
+                Code = "account_locked",
+                ErrorDescription = "Too many incorrect attempts. Please try again later.",
+                LockoutSecondsRemaining = verifyResult.LockoutSecondsRemaining,
+            },
+            OtpVerifyOutcome.OtpDisabled => new TokenResponse
+            {
+                Error = Errors.InvalidGrant,
+                Code = "otp_disabled",
+                ErrorDescription = "OTP sign-in is disabled for this store.",
+            },
+            _ => new TokenResponse
+            {
+                Error = Errors.InvalidGrant,
+                Code = "invalid_code",
+                ErrorDescription = "The code is invalid or has expired.",
+            },
+        };
     }
 
     private async Task<AuthenticationTicket> CreateTicketAsync(ApplicationUser user, TokenRequestContext context)
