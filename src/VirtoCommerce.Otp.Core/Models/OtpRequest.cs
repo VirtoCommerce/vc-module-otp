@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace VirtoCommerce.Otp.Core.Models;
 
-public class OtpEmailRequestCodeRequest
+public class OtpRequest
 {
     [Required]
     public string StoreId { get; set; }

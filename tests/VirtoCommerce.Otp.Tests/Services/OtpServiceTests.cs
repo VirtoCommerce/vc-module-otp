@@ -9,9 +9,10 @@ using VirtoCommerce.Otp.Core.Models;
 using VirtoCommerce.Otp.Core.Notifications;
 using VirtoCommerce.Otp.Data.Services;
 using VirtoCommerce.Platform.Core.Security;
-using VirtoCommerce.Platform.Core.Settings;
+using VirtoCommerce.StoreModule.Core.Model;
+using VirtoCommerce.StoreModule.Core.Services;
 using Xunit;
-using StoreSettings = VirtoCommerce.Otp.Core.ModuleConstants.Settings.General;
+using OtpModuleSettings = VirtoCommerce.Otp.Core.ModuleConstants.Settings.General;
 
 namespace VirtoCommerce.Otp.Tests.Services;
 
@@ -152,19 +153,19 @@ public class OtpServiceTests
 
     private static TestContext CreateContext(bool enabled = true)
     {
-        var settingValues = new Dictionary<string, object>
+        var store = new Store
         {
-            [StoreSettings.Enabled.Name] = enabled,
+            Id = _storeId,
+            Settings =
+            [
+                new() { Name = OtpModuleSettings.OtpSignInEnabled.Name, Value = enabled },
+            ],
         };
 
-        var settingsManager = new Mock<ISettingsManager>();
-        settingsManager
-            .Setup(x => x.GetObjectSettingAsync(It.IsAny<string>(), "Store", _storeId))
-            .ReturnsAsync((string name, string _, string _) => new ObjectSettingEntry
-            {
-                Name = name,
-                Value = settingValues.GetValueOrDefault(name),
-            });
+        var storeService = new Mock<IStoreService>();
+        storeService
+            .Setup(x => x.GetAsync(It.Is<IList<string>>(ids => ids.Contains(_storeId)), null, false))
+            .ReturnsAsync([store]);
 
         var userStore = new Mock<IUserStore<ApplicationUser>>();
         var userManager = new Mock<UserManager<ApplicationUser>>(userStore.Object, null, null, null, null, null, null, null, null);
@@ -178,16 +179,16 @@ public class OtpServiceTests
 
         var service = new OtpService(
             userManager.Object,
-            settingsManager.Object,
+            storeService.Object,
             notificationSearchService.Object,
             notificationSender.Object);
 
-        return new TestContext(service, userManager, settingsManager, notificationSender);
+        return new TestContext(service, userManager, storeService, notificationSender);
     }
 
     private sealed record TestContext(
         OtpService Service,
         Mock<UserManager<ApplicationUser>> UserManager,
-        Mock<ISettingsManager> SettingsManager,
+        Mock<IStoreService> StoreService,
         Mock<INotificationSender> NotificationSender);
 }

@@ -10,7 +10,8 @@ using VirtoCommerce.Platform.Core.Common;
 using VirtoCommerce.Platform.Core.Security;
 using VirtoCommerce.Platform.Core.Settings;
 using VirtoCommerce.StoreModule.Core.Model;
-using StoreSettings = VirtoCommerce.Otp.Core.ModuleConstants.Settings.General;
+using VirtoCommerce.StoreModule.Core.Services;
+using OtpModuleSettings = VirtoCommerce.Otp.Core.ModuleConstants.Settings.General;
 
 namespace VirtoCommerce.Otp.Data.Services;
 
@@ -19,18 +20,18 @@ public class OtpService : IOtpService
     public const string TokenPurpose = "OtpSignIn";
 
     private readonly UserManager<ApplicationUser> _userManager;
-    private readonly ISettingsManager _settingsManager;
+    private readonly IStoreService _storeService;
     private readonly INotificationSearchService _notificationSearchService;
     private readonly INotificationSender _notificationSender;
 
     public OtpService(
         UserManager<ApplicationUser> userManager,
-        ISettingsManager settingsManager,
+        IStoreService storeService,
         INotificationSearchService notificationSearchService,
         INotificationSender notificationSender)
     {
         _userManager = userManager;
-        _settingsManager = settingsManager;
+        _storeService = storeService;
         _notificationSearchService = notificationSearchService;
         _notificationSender = notificationSender;
     }
@@ -40,20 +41,20 @@ public class OtpService : IOtpService
         ArgumentException.ThrowIfNullOrEmpty(storeId);
         ArgumentException.ThrowIfNullOrEmpty(email);
 
-        email = email.Trim();
-
         var delayedResponse = DelayedResponse.Create(nameof(OtpService), nameof(RequestCodeAsync));
 
-        var enabled = await GetStoreSettingAsync(StoreSettings.Enabled, storeId);
-        if (!enabled)
+        var otpEnabled = await IsOtpSignInEnabledAsync(storeId);
+        if (!otpEnabled)
         {
             await delayedResponse.FailAsync();
 
             return new OtpRequestResult
             {
-                Outcome = OtpRequestOutcome.OtpDisabled
+                Outcome = OtpRequestOutcome.OtpDisabled,
             };
         }
+
+        email = email.Trim();
 
         var user = await _userManager.FindByEmailAsync(email);
         if (user != null)
@@ -68,7 +69,7 @@ public class OtpService : IOtpService
         return new OtpRequestResult
         {
             Outcome = OtpRequestOutcome.CodeSent,
-            MaskedEmail = MaskEmail(email)
+            MaskedEmail = MaskEmail(email),
         };
     }
 
@@ -78,18 +79,18 @@ public class OtpService : IOtpService
         ArgumentException.ThrowIfNullOrEmpty(email);
         ArgumentException.ThrowIfNullOrEmpty(code);
 
-        email = email.Trim();
-
-        var enabled = await GetStoreSettingAsync(StoreSettings.Enabled, storeId);
-        if (!enabled)
+        var otpEnabled = await IsOtpSignInEnabledAsync(storeId);
+        if (!otpEnabled)
         {
             return new OtpVerifyResult
             {
-                Outcome = OtpVerifyOutcome.OtpDisabled
+                Outcome = OtpVerifyOutcome.OtpDisabled,
             };
         }
 
         var delayedResponse = DelayedResponse.Create(nameof(OtpService), nameof(VerifyCodeAsync));
+
+        email = email.Trim();
 
         var user = await _userManager.FindByEmailAsync(email);
         if (user == null)
@@ -98,18 +99,18 @@ public class OtpService : IOtpService
 
             return new OtpVerifyResult
             {
-                Outcome = OtpVerifyOutcome.InvalidCode
+                Outcome = OtpVerifyOutcome.InvalidCode,
             };
         }
 
         if (await _userManager.IsLockedOutAsync(user))
         {
-            await delayedResponse.SucceedAsync();
+            await delayedResponse.FailAsync();
 
             return new OtpVerifyResult
             {
                 Outcome = OtpVerifyOutcome.AccountLocked,
-                LockoutSecondsRemaining = await GetLockoutSecondsRemainingAsync(user)
+                LockoutSecondsRemaining = await GetLockoutSecondsRemainingAsync(user),
             };
         }
 
@@ -120,19 +121,20 @@ public class OtpService : IOtpService
 
             if (await _userManager.IsLockedOutAsync(user))
             {
-                await delayedResponse.SucceedAsync();
+                await delayedResponse.FailAsync();
+
                 return new OtpVerifyResult
                 {
                     Outcome = OtpVerifyOutcome.AccountLocked,
-                    LockoutSecondsRemaining = await GetLockoutSecondsRemainingAsync(user)
+                    LockoutSecondsRemaining = await GetLockoutSecondsRemainingAsync(user),
                 };
             }
 
-            await delayedResponse.SucceedAsync();
+            await delayedResponse.FailAsync();
 
             return new OtpVerifyResult
             {
-                Outcome = OtpVerifyOutcome.InvalidCode
+                Outcome = OtpVerifyOutcome.InvalidCode,
             };
         }
 
@@ -143,7 +145,7 @@ public class OtpService : IOtpService
         return new OtpVerifyResult
         {
             Outcome = OtpVerifyOutcome.Success,
-            User = user
+            User = user,
         };
     }
 
@@ -168,16 +170,11 @@ public class OtpService : IOtpService
         await _notificationSender.ScheduleSendNotificationAsync(notification);
     }
 
-    protected virtual async Task<bool> GetStoreSettingAsync(SettingDescriptor descriptor, string storeId)
+    protected virtual async Task<bool> IsOtpSignInEnabledAsync(string storeId)
     {
-        var setting = await _settingsManager.GetObjectSettingAsync(descriptor.Name, nameof(Store), storeId);
+        var store = await _storeService.GetNoCloneAsync(storeId);
 
-        if (setting?.Value != null && SettingValueConverter.TryConvert<bool>(setting.Value, out var value))
-        {
-            return value;
-        }
-
-        return descriptor.DefaultValue is true;
+        return store?.Settings.GetValue<bool>(OtpModuleSettings.OtpSignInEnabled) ?? false;
     }
 
     protected virtual string MaskEmail(string email)

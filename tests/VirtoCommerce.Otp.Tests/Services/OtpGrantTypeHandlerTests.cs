@@ -11,7 +11,7 @@ using OpenIddict.Abstractions;
 using VirtoCommerce.Otp.Core;
 using VirtoCommerce.Otp.Core.Models;
 using VirtoCommerce.Otp.Core.Services;
-using VirtoCommerce.Otp.Data.TokenGrants;
+using VirtoCommerce.Otp.Data.Services;
 using VirtoCommerce.Platform.Core.Events;
 using VirtoCommerce.Platform.Core.Security;
 using VirtoCommerce.Platform.Core.Security.Events;
@@ -19,10 +19,10 @@ using VirtoCommerce.Platform.Security.Exceptions;
 using VirtoCommerce.Platform.Security.OpenIddict;
 using Xunit;
 
-namespace VirtoCommerce.Otp.Tests.TokenGrants;
+namespace VirtoCommerce.Otp.Tests.Services;
 
 [Trait("Category", "Unit")]
-public class OtpEmailTokenGrantHandlerTests
+public class OtpGrantTypeHandlerTests
 {
     private const string _storeId = "test-store";
     private const string _email = "buyer@acme.com";
@@ -42,7 +42,7 @@ public class OtpEmailTokenGrantHandlerTests
         var context = CreateContext();
         var request = CreateRequest(storeId: null, email: _email, code: _code);
 
-        var result = await context.Handler.HandleAsync(CreateRequestContext(request));
+        var result = await context.Handler.ProcessGrantAsync(CreateRequestContext(request));
 
         Assert.False(result.Success);
         Assert.Equal("invalid_code", result.Error.Code);
@@ -57,7 +57,7 @@ public class OtpEmailTokenGrantHandlerTests
             .ReturnsAsync(new OtpVerifyResult { Outcome = OtpVerifyOutcome.InvalidCode });
 
         var request = CreateRequest(_storeId, _email, _code);
-        var result = await context.Handler.HandleAsync(CreateRequestContext(request));
+        var result = await context.Handler.ProcessGrantAsync(CreateRequestContext(request));
 
         Assert.False(result.Success);
         Assert.Equal("invalid_code", result.Error.Code);
@@ -72,7 +72,7 @@ public class OtpEmailTokenGrantHandlerTests
             .ReturnsAsync(new OtpVerifyResult { Outcome = OtpVerifyOutcome.AccountLocked, LockoutSecondsRemaining = 245 });
 
         var request = CreateRequest(_storeId, _email, _code);
-        var result = await context.Handler.HandleAsync(CreateRequestContext(request));
+        var result = await context.Handler.ProcessGrantAsync(CreateRequestContext(request));
 
         Assert.False(result.Success);
         Assert.Equal("account_locked", result.Error.Code);
@@ -87,7 +87,7 @@ public class OtpEmailTokenGrantHandlerTests
             .ReturnsAsync(new OtpVerifyResult { Outcome = OtpVerifyOutcome.OtpDisabled });
 
         var request = CreateRequest(_storeId, _email, _code);
-        var result = await context.Handler.HandleAsync(CreateRequestContext(request));
+        var result = await context.Handler.ProcessGrantAsync(CreateRequestContext(request));
 
         Assert.False(result.Success);
         Assert.Equal("otp_disabled", result.Error.Code);
@@ -103,7 +103,7 @@ public class OtpEmailTokenGrantHandlerTests
         context.SignInManager.Setup(x => x.CanSignInAsync(user)).ReturnsAsync(false);
 
         var request = CreateRequest(_storeId, _email, _code);
-        var result = await context.Handler.HandleAsync(CreateRequestContext(request));
+        var result = await context.Handler.ProcessGrantAsync(CreateRequestContext(request));
 
         Assert.False(result.Success);
     }
@@ -114,7 +114,7 @@ public class OtpEmailTokenGrantHandlerTests
         var validatorError = new TokenResponse { Code = "custom_error" };
         var validator = new Mock<ITokenRequestValidator>();
         validator.Setup(x => x.ValidateAsync(It.IsAny<TokenRequestContext>()))
-            .ReturnsAsync((IList<TokenResponse>)[validatorError]);
+            .ReturnsAsync([validatorError]);
 
         var context = CreateContext(requestValidators: [validator.Object]);
         var user = new ApplicationUser { Email = _email };
@@ -123,7 +123,7 @@ public class OtpEmailTokenGrantHandlerTests
         context.SignInManager.Setup(x => x.CanSignInAsync(user)).ReturnsAsync(true);
 
         var request = CreateRequest(_storeId, _email, _code);
-        var result = await context.Handler.HandleAsync(CreateRequestContext(request));
+        var result = await context.Handler.ProcessGrantAsync(CreateRequestContext(request));
 
         Assert.False(result.Success);
         Assert.Equal(validatorError, result.Error);
@@ -142,7 +142,7 @@ public class OtpEmailTokenGrantHandlerTests
         context.UserManager.Setup(x => x.UpdateAsync(user)).ThrowsAsync(new DuplicateEmailException("duplicate"));
 
         var request = CreateRequest(_storeId, _email, _code);
-        var result = await context.Handler.HandleAsync(CreateRequestContext(request));
+        var result = await context.Handler.ProcessGrantAsync(CreateRequestContext(request));
 
         Assert.False(result.Success);
     }
@@ -159,7 +159,7 @@ public class OtpEmailTokenGrantHandlerTests
         context.SignInManager.Setup(x => x.CreateUserPrincipalAsync(user)).ReturnsAsync(new ClaimsPrincipal(new ClaimsIdentity()));
 
         var request = CreateRequest(_storeId, _email, _code);
-        var result = await context.Handler.HandleAsync(CreateRequestContext(request));
+        var result = await context.Handler.ProcessGrantAsync(CreateRequestContext(request));
 
         Assert.True(result.Success);
         Assert.NotNull(result.Principal);
@@ -206,7 +206,7 @@ public class OtpEmailTokenGrantHandlerTests
 
         var eventPublisher = new Mock<IEventPublisher>();
 
-        var handler = new OtpEmailTokenGrantHandler(
+        var handler = new OtpGrantTypeHandler(
             otpService.Object,
             signInManager.Object,
             identityOptions,
@@ -219,7 +219,7 @@ public class OtpEmailTokenGrantHandlerTests
     }
 
     private sealed record TestContext(
-        OtpEmailTokenGrantHandler Handler,
+        OtpGrantTypeHandler Handler,
         Mock<IOtpService> OtpService,
         Mock<SignInManager<ApplicationUser>> SignInManager,
         Mock<UserManager<ApplicationUser>> UserManager,

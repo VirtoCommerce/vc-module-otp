@@ -14,7 +14,7 @@ public static class ModuleConstants
     {
         public static class General
         {
-            public static readonly SettingDescriptor Enabled = new()
+            public static readonly SettingDescriptor OtpSignInEnabled = new()
             {
                 Name = "OtpSignIn.Enabled",
                 GroupName = "OTP Sign-In|General",
@@ -28,7 +28,7 @@ public static class ModuleConstants
         {
             get
             {
-                yield return General.Enabled;
+                yield return General.OtpSignInEnabled;
             }
         }
 
@@ -36,7 +36,7 @@ public static class ModuleConstants
         {
             get
             {
-                yield return General.Enabled;
+                yield return General.OtpSignInEnabled;
             }
         }
     }
