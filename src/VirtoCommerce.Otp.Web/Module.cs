@@ -23,7 +23,6 @@ public class Module : IModule, IHasConfiguration
     public void Initialize(IServiceCollection serviceCollection)
     {
         serviceCollection.AddTransient<IOtpService, OtpService>();
-
         serviceCollection.AddGrantTypeHandler<OtpGrantTypeHandler>(ModuleConstants.Security.GrantType);
     }
 
