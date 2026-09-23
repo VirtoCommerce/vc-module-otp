@@ -5,7 +5,7 @@ namespace VirtoCommerce.Otp.Core.Services;
 
 public interface IOtpService
 {
-    Task<OtpRequestResult> RequestCodeAsync(string storeId, string email);
+    Task<OtpRequestResult> RequestCodeAsync(string email);
 
-    Task<OtpVerifyResult> VerifyCodeAsync(string storeId, string email, string code);
+    Task<OtpVerifyResult> VerifyCodeAsync(string email, string code);
 }

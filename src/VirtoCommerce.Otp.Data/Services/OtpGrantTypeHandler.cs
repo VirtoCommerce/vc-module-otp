@@ -9,7 +9,6 @@ using VirtoCommerce.Otp.Core.Services;
 using VirtoCommerce.Platform.Core.Events;
 using VirtoCommerce.Platform.Core.Security;
 using VirtoCommerce.Platform.Security.OpenIddict;
-using VirtoCommerce.Platform.Security.TokenGrants;
 using static OpenIddict.Abstractions.OpenIddictConstants;
 
 namespace VirtoCommerce.Otp.Data.Services;
@@ -18,7 +17,7 @@ namespace VirtoCommerce.Otp.Data.Services;
 /// Handles the "otp_email" token grant: verifies the emailed code via <see cref="IOtpService"/>
 /// and signs in the matching user.
 /// </summary>
-public class OtpGrantTypeHandler : TokenGrantHandlerBase
+public class OtpGrantTypeHandler : GrantTypeHandlerBase
 {
     private readonly IOtpService _otpService;
 
@@ -42,7 +41,7 @@ public class OtpGrantTypeHandler : TokenGrantHandlerBase
         var verifyResult = await VerifyAsync(context.Request);
         if (verifyResult.Outcome != OtpVerifyOutcome.Success)
         {
-            return GrantAuthenticationResult.Failed(BuildErrorResponse(verifyResult));
+            return GrantAuthenticationResult.Failed(BuildErrorResponse(verifyResult, context.DetailedErrors));
         }
 
         return GrantAuthenticationResult.Authenticated(verifyResult.User);
@@ -50,30 +49,29 @@ public class OtpGrantTypeHandler : TokenGrantHandlerBase
 
     private async Task<OtpVerifyResult> VerifyAsync(OpenIddictRequest request)
     {
-        var storeId = (string)request.GetParameter("storeId");
         var email = (string)request.GetParameter("email");
         var code = (string)request.GetParameter("code");
 
-        if (string.IsNullOrEmpty(storeId) || string.IsNullOrEmpty(email) || string.IsNullOrEmpty(code))
+        if (string.IsNullOrEmpty(email) || string.IsNullOrEmpty(code))
         {
             return new OtpVerifyResult { Outcome = OtpVerifyOutcome.InvalidCode };
         }
 
-        return await _otpService.VerifyCodeAsync(storeId, email, code);
+        return await _otpService.VerifyCodeAsync(email, code);
     }
 
-    private static TokenResponse BuildErrorResponse(OtpVerifyResult verifyResult)
+    private static TokenResponse BuildErrorResponse(OtpVerifyResult verifyResult, bool detailedErrors)
     {
         return verifyResult.Outcome switch
         {
-            OtpVerifyOutcome.AccountLocked => new TokenResponse
+            OtpVerifyOutcome.AccountLocked when detailedErrors => new TokenResponse
             {
                 Error = Errors.InvalidGrant,
                 Code = "account_locked",
                 ErrorDescription = "Too many incorrect attempts. Please try again later.",
                 LockoutSecondsRemaining = verifyResult.LockoutSecondsRemaining,
             },
-            OtpVerifyOutcome.OtpDisabled => new TokenResponse
+            OtpVerifyOutcome.OtpDisabled when detailedErrors => new TokenResponse
             {
                 Error = Errors.InvalidGrant,
                 Code = "otp_disabled",

@@ -36,32 +36,31 @@ public class OtpService : IOtpService
         _notificationSender = notificationSender;
     }
 
-    public async Task<OtpRequestResult> RequestCodeAsync(string storeId, string email)
+    public async Task<OtpRequestResult> RequestCodeAsync(string email)
     {
-        ArgumentException.ThrowIfNullOrEmpty(storeId);
         ArgumentException.ThrowIfNullOrEmpty(email);
 
         var delayedResponse = DelayedResponse.Create(nameof(OtpService), nameof(RequestCodeAsync));
-
-        var otpEnabled = await IsOtpSignInEnabledAsync(storeId);
-        if (!otpEnabled)
-        {
-            await delayedResponse.FailAsync();
-
-            return new OtpRequestResult
-            {
-                Outcome = OtpRequestOutcome.OtpDisabled,
-            };
-        }
 
         email = email.Trim();
 
         var user = await _userManager.FindByEmailAsync(email);
         if (user != null)
         {
+            if (!await IsOtpSignInEnabledAsync(user.StoreId))
+            {
+                await delayedResponse.FailAsync();
+
+                return new OtpRequestResult
+                {
+                    Outcome = OtpRequestOutcome.OtpDisabled,
+                    MaskedEmail = MaskEmail(email),
+                };
+            }
+
             var code = await _userManager.GenerateUserTokenAsync(user, TokenOptions.DefaultEmailProvider, TokenPurpose);
 
-            await SendCodeNotificationAsync(storeId, email, code);
+            await SendCodeNotificationAsync(user.StoreId, email, code);
         }
 
         await delayedResponse.SucceedAsync();
@@ -73,20 +72,10 @@ public class OtpService : IOtpService
         };
     }
 
-    public async Task<OtpVerifyResult> VerifyCodeAsync(string storeId, string email, string code)
+    public async Task<OtpVerifyResult> VerifyCodeAsync(string email, string code)
     {
-        ArgumentException.ThrowIfNullOrEmpty(storeId);
         ArgumentException.ThrowIfNullOrEmpty(email);
         ArgumentException.ThrowIfNullOrEmpty(code);
-
-        var otpEnabled = await IsOtpSignInEnabledAsync(storeId);
-        if (!otpEnabled)
-        {
-            return new OtpVerifyResult
-            {
-                Outcome = OtpVerifyOutcome.OtpDisabled,
-            };
-        }
 
         var delayedResponse = DelayedResponse.Create(nameof(OtpService), nameof(VerifyCodeAsync));
 
@@ -100,6 +89,16 @@ public class OtpService : IOtpService
             return new OtpVerifyResult
             {
                 Outcome = OtpVerifyOutcome.InvalidCode,
+            };
+        }
+
+        if (!await IsOtpSignInEnabledAsync(user.StoreId))
+        {
+            await delayedResponse.FailAsync();
+
+            return new OtpVerifyResult
+            {
+                Outcome = OtpVerifyOutcome.OtpDisabled,
             };
         }
 
