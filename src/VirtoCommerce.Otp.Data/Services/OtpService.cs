@@ -40,17 +40,15 @@ public class OtpService : IOtpService
     {
         ArgumentException.ThrowIfNullOrEmpty(email);
 
-        var delayedResponse = DelayedResponse.Create(nameof(OtpService), nameof(RequestCodeAsync));
-
         email = email.Trim();
 
         var user = await ResolveUserAsync(email, storeId);
         if (user != null)
         {
-            if (!await IsOtpSignInEnabledAsync(user.StoreId))
-            {
-                await delayedResponse.FailAsync();
+            var effectiveStoreId = storeId ?? user.StoreId;
 
+            if (!await IsOtpSignInEnabledAsync(effectiveStoreId))
+            {
                 return new OtpRequestResult
                 {
                     Outcome = OtpRequestOutcome.OtpDisabled,
@@ -60,10 +58,8 @@ public class OtpService : IOtpService
 
             var code = await _userManager.GenerateUserTokenAsync(user, TokenOptions.DefaultEmailProvider, TokenPurpose);
 
-            await SendCodeNotificationAsync(user.StoreId, email, code);
+            await SendCodeNotificationAsync(effectiveStoreId, email, code);
         }
-
-        await delayedResponse.SucceedAsync();
 
         return new OtpRequestResult
         {
@@ -77,35 +73,19 @@ public class OtpService : IOtpService
         ArgumentException.ThrowIfNullOrEmpty(email);
         ArgumentException.ThrowIfNullOrEmpty(code);
 
-        var delayedResponse = DelayedResponse.Create(nameof(OtpService), nameof(VerifyCodeAsync));
-
         email = email.Trim();
 
         var user = await ResolveUserAsync(email, storeId);
         if (user == null)
         {
-            await delayedResponse.FailAsync();
-
             return new OtpVerifyResult
             {
                 Outcome = OtpVerifyOutcome.InvalidCode,
             };
         }
 
-        if (!await IsOtpSignInEnabledAsync(user.StoreId))
-        {
-            await delayedResponse.FailAsync();
-
-            return new OtpVerifyResult
-            {
-                Outcome = OtpVerifyOutcome.OtpDisabled,
-            };
-        }
-
         if (await _userManager.IsLockedOutAsync(user))
         {
-            await delayedResponse.FailAsync();
-
             return new OtpVerifyResult
             {
                 Outcome = OtpVerifyOutcome.AccountLocked,
@@ -120,8 +100,6 @@ public class OtpService : IOtpService
 
             if (await _userManager.IsLockedOutAsync(user))
             {
-                await delayedResponse.FailAsync();
-
                 return new OtpVerifyResult
                 {
                     Outcome = OtpVerifyOutcome.AccountLocked,
@@ -129,17 +107,22 @@ public class OtpService : IOtpService
                 };
             }
 
-            await delayedResponse.FailAsync();
-
             return new OtpVerifyResult
             {
                 Outcome = OtpVerifyOutcome.InvalidCode,
             };
         }
 
-        await _userManager.ResetAccessFailedCountAsync(user);
+        var effectiveStoreId = storeId ?? user.StoreId;
+        if (!await IsOtpSignInEnabledAsync(effectiveStoreId))
+        {
+            return new OtpVerifyResult
+            {
+                Outcome = OtpVerifyOutcome.OtpDisabled,
+            };
+        }
 
-        await delayedResponse.SucceedAsync();
+        await _userManager.ResetAccessFailedCountAsync(user);
 
         return new OtpVerifyResult
         {
@@ -151,9 +134,18 @@ public class OtpService : IOtpService
     protected virtual async Task<ApplicationUser> ResolveUserAsync(string email, string storeId)
     {
         var user = await _userManager.FindByEmailAsync(email);
-        if (user != null && !string.IsNullOrEmpty(storeId) && user.StoreId != storeId)
+        if (user == null)
         {
             return null;
+        }
+
+        if (!string.IsNullOrEmpty(storeId))
+        {
+            var allowedStoreIds = await _storeService.GetUserAllowedStoreIdsAsync(user);
+            if (!allowedStoreIds.Contains(storeId))
+            {
+                return null;
+            }
         }
 
         return user;

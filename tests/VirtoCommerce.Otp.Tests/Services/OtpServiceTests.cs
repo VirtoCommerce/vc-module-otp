@@ -134,15 +134,32 @@ public class OtpServiceTests
     }
 
     [Fact]
-    public async Task VerifyCodeAsync_Should_ReturnDisabled_When_OtpDisabledForUsersStore()
+    public async Task VerifyCodeAsync_Should_ReturnDisabled_When_CodeIsValid_But_OtpDisabledForUsersStore()
     {
         var context = CreateContext(enabled: false);
         var user = new ApplicationUser { Email = _email, StoreId = _storeId };
         context.UserManager.Setup(x => x.FindByEmailAsync(_email)).ReturnsAsync(user);
+        context.UserManager.Setup(x => x.IsLockedOutAsync(user)).ReturnsAsync(false);
+        context.UserManager.Setup(x => x.VerifyUserTokenAsync(user, TokenOptions.DefaultEmailProvider, OtpService.TokenPurpose, "123456")).ReturnsAsync(true);
 
         var result = await context.Service.VerifyCodeAsync(_email, "123456");
 
         Assert.Equal(OtpVerifyOutcome.OtpDisabled, result.Outcome);
+        context.UserManager.Verify(x => x.ResetAccessFailedCountAsync(user), Times.Never);
+    }
+
+    [Fact]
+    public async Task VerifyCodeAsync_Should_ReturnInvalidCode_When_CodeIsWrong_Even_If_OtpDisabledForUsersStore()
+    {
+        var context = CreateContext(enabled: false);
+        var user = new ApplicationUser { Email = _email, StoreId = _storeId };
+        context.UserManager.Setup(x => x.FindByEmailAsync(_email)).ReturnsAsync(user);
+        context.UserManager.Setup(x => x.IsLockedOutAsync(user)).ReturnsAsync(false);
+        context.UserManager.Setup(x => x.VerifyUserTokenAsync(user, TokenOptions.DefaultEmailProvider, OtpService.TokenPurpose, "000000")).ReturnsAsync(false);
+
+        var result = await context.Service.VerifyCodeAsync(_email, "000000");
+
+        Assert.Equal(OtpVerifyOutcome.InvalidCode, result.Outcome);
     }
 
     [Fact]
@@ -227,6 +244,9 @@ public class OtpServiceTests
         storeService
             .Setup(x => x.GetAsync(It.Is<IList<string>>(ids => ids.Contains(_storeId)), null, false))
             .ReturnsAsync([store]);
+        storeService
+            .Setup(x => x.GetUserAllowedStoreIdsAsync(It.IsAny<ApplicationUser>()))
+            .ReturnsAsync([_storeId]);
 
         var userStore = new Mock<IUserStore<ApplicationUser>>();
         var userManager = new Mock<UserManager<ApplicationUser>>(userStore.Object, null, null, null, null, null, null, null, null);
