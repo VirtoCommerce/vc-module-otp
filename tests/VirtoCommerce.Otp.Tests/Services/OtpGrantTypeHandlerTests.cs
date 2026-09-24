@@ -69,6 +69,35 @@ public class OtpGrantTypeHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_Should_LogTheAttemptedEmail_When_NoUserWasResolved()
+    {
+        var context = CreateContext();
+        context.OtpService.Setup(x => x.VerifyCodeAsync(_email, _code))
+            .ReturnsAsync(new OtpVerifyResult { Outcome = OtpVerifyOutcome.InvalidCode });
+
+        var request = CreateRequest(_email, _code);
+        await context.Handler.HandleAsync(CreateRequestContext(request));
+
+        context.EventPublisher.Verify(x => x.Publish(It.Is<UserSignInAttemptEvent>(e =>
+            e.Succeeded == false && e.UserName == _email && e.UserId == null)), Times.Once);
+    }
+
+    [Fact]
+    public async Task HandleAsync_Should_LogTheResolvedUser_When_AccountIsLocked()
+    {
+        var context = CreateContext();
+        var user = new ApplicationUser { Id = "user-1", Email = _email };
+        context.OtpService.Setup(x => x.VerifyCodeAsync(_email, _code))
+            .ReturnsAsync(new OtpVerifyResult { Outcome = OtpVerifyOutcome.AccountLocked, LockoutSecondsRemaining = 245, User = user });
+
+        var request = CreateRequest(_email, _code);
+        await context.Handler.HandleAsync(CreateRequestContext(request));
+
+        context.EventPublisher.Verify(x => x.Publish(It.Is<UserSignInAttemptEvent>(e =>
+            e.Succeeded == false && e.UserId == "user-1")), Times.Once);
+    }
+
+    [Fact]
     public async Task HandleAsync_Should_ReturnAccountLocked_With_SecondsRemaining_When_UserIsLockedOut_And_DetailedErrorsEnabled()
     {
         var context = CreateContext();

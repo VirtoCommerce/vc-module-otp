@@ -45,7 +45,7 @@ public class OtpService : IOtpService
         var user = await ResolveUserAsync(email, storeId);
         if (user != null)
         {
-            var effectiveStoreId = storeId ?? user.StoreId;
+            var effectiveStoreId = string.IsNullOrEmpty(storeId) ? user.StoreId : storeId;
 
             if (!await IsOtpSignInEnabledAsync(effectiveStoreId))
             {
@@ -59,11 +59,17 @@ public class OtpService : IOtpService
             var code = await _userManager.GenerateUserTokenAsync(user, TokenOptions.DefaultEmailProvider, TokenPurpose);
 
             await SendCodeNotificationAsync(effectiveStoreId, email, code);
+
+            return new OtpRequestResult
+            {
+                Outcome = OtpRequestOutcome.CodeSent,
+                MaskedEmail = MaskEmail(email),
+            };
         }
 
         return new OtpRequestResult
         {
-            Outcome = OtpRequestOutcome.CodeSent,
+            Outcome = OtpRequestOutcome.UserNotFound,
             MaskedEmail = MaskEmail(email),
         };
     }
@@ -90,6 +96,7 @@ public class OtpService : IOtpService
             {
                 Outcome = OtpVerifyOutcome.AccountLocked,
                 LockoutSecondsRemaining = await GetLockoutSecondsRemainingAsync(user),
+                User = user,
             };
         }
 
@@ -104,6 +111,7 @@ public class OtpService : IOtpService
                 {
                     Outcome = OtpVerifyOutcome.AccountLocked,
                     LockoutSecondsRemaining = await GetLockoutSecondsRemainingAsync(user),
+                    User = user,
                 };
             }
 
@@ -113,12 +121,13 @@ public class OtpService : IOtpService
             };
         }
 
-        var effectiveStoreId = storeId ?? user.StoreId;
+        var effectiveStoreId = string.IsNullOrEmpty(storeId) ? user.StoreId : storeId;
         if (!await IsOtpSignInEnabledAsync(effectiveStoreId))
         {
             return new OtpVerifyResult
             {
                 Outcome = OtpVerifyOutcome.OtpDisabled,
+                User = user,
             };
         }
 

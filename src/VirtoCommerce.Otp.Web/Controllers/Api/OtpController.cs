@@ -30,18 +30,19 @@ public class OtpController : Controller
 
         var result = await _otpService.RequestCodeAsync(request.Email, request.StoreId);
 
-        if (result.Outcome == OtpRequestOutcome.OtpDisabled)
+        if (result.Outcome == OtpRequestOutcome.CodeSent)
         {
-            await delayedResponse.FailAsync();
-
-            if (!_passwordLoginOptions.DetailedErrors)
-            {
-                result.Outcome = OtpRequestOutcome.CodeSent;
-            }
+            await delayedResponse.SucceedAsync();
         }
         else
         {
-            await delayedResponse.SucceedAsync();
+            await delayedResponse.FailAsync();
+        }
+
+        if (result.Outcome == OtpRequestOutcome.UserNotFound ||
+            (result.Outcome == OtpRequestOutcome.OtpDisabled && !_passwordLoginOptions.DetailedErrors))
+        {
+            result.Outcome = OtpRequestOutcome.CodeSent;
         }
 
         return Ok(result);

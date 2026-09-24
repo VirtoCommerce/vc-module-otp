@@ -46,10 +46,23 @@ public class OtpGrantTypeHandler : GrantTypeHandlerBase
         {
             context.FailureReason = GetFailureReason(verifyResult.Outcome);
 
-            return GrantValidationResult.Fail(BuildErrorResponse(verifyResult, context.DetailedErrors));
+            return new GrantValidationResult
+            {
+                Error = BuildErrorResponse(verifyResult, context.DetailedErrors),
+                User = verifyResult.User,
+            };
         }
 
         return GrantValidationResult.Succeed(verifyResult.User);
+    }
+
+    protected override UserSignInAttemptEvent BuildSignInAttemptEvent(TokenRequestContext context, bool succeeded)
+    {
+        var result = base.BuildSignInAttemptEvent(context, succeeded);
+
+        result.UserName ??= (string)context.Request.GetParameter("email");
+
+        return result;
     }
 
     private async Task<OtpVerifyResult> VerifyAsync(OpenIddictRequest request)

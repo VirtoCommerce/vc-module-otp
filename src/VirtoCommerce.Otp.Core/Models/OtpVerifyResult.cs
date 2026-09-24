@@ -12,10 +12,6 @@ public class OtpVerifyResult
     /// </summary>
     public int? LockoutSecondsRemaining { get; set; }
 
-    /// <summary>
-    /// Set only for <see cref="OtpVerifyOutcome.Success"/>. Not serialized - this result is also
-    /// returned as-is from the public /api/otp/verify endpoint.
-    /// </summary>
     [JsonIgnore]
     public ApplicationUser User { get; set; }
 }

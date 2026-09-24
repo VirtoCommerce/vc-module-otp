@@ -8,4 +8,5 @@ public enum OtpRequestOutcome
     Undefined,
     CodeSent,
     OtpDisabled,
+    UserNotFound,
 }

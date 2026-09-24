@@ -55,6 +55,19 @@ public class OtpControllerTests
     }
 
     [Fact]
+    public async Task RequestCode_Should_ReturnSent_When_UserNotFound()
+    {
+        var controller = CreateController(detailedErrors: true, out var otpService);
+        otpService.Setup(x => x.RequestCodeAsync(_email))
+            .ReturnsAsync(new OtpRequestResult { Outcome = OtpRequestOutcome.UserNotFound, MaskedEmail = "b•••r@acme.com" });
+
+        var actionResult = await controller.RequestCode(new OtpRequest { Email = _email });
+
+        var result = Assert.IsType<OtpRequestResult>(Assert.IsType<OkObjectResult>(actionResult.Result).Value);
+        Assert.Equal(OtpRequestOutcome.CodeSent, result.Outcome);
+    }
+
+    [Fact]
     public async Task RequestCode_Should_ForwardStoreId_When_Provided()
     {
         var controller = CreateController(detailedErrors: false, out var otpService);
