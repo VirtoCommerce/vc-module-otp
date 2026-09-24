@@ -8,6 +8,12 @@ public static class ModuleConstants
     public static class Security
     {
         public const string GrantType = "otp_email";
+
+        public static class FailureReason
+        {
+            public const string InvalidCode = "InvalidCode";
+            public const string OtpDisabled = "OtpDisabled";
+        }
     }
 
     public static class Settings

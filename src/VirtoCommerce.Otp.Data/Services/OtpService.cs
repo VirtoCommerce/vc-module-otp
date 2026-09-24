@@ -36,7 +36,7 @@ public class OtpService : IOtpService
         _notificationSender = notificationSender;
     }
 
-    public async Task<OtpRequestResult> RequestCodeAsync(string email)
+    public async Task<OtpRequestResult> RequestCodeAsync(string email, string storeId = null)
     {
         ArgumentException.ThrowIfNullOrEmpty(email);
 
@@ -44,7 +44,7 @@ public class OtpService : IOtpService
 
         email = email.Trim();
 
-        var user = await _userManager.FindByEmailAsync(email);
+        var user = await ResolveUserAsync(email, storeId);
         if (user != null)
         {
             if (!await IsOtpSignInEnabledAsync(user.StoreId))
@@ -72,7 +72,7 @@ public class OtpService : IOtpService
         };
     }
 
-    public async Task<OtpVerifyResult> VerifyCodeAsync(string email, string code)
+    public async Task<OtpVerifyResult> VerifyCodeAsync(string email, string code, string storeId = null)
     {
         ArgumentException.ThrowIfNullOrEmpty(email);
         ArgumentException.ThrowIfNullOrEmpty(code);
@@ -81,7 +81,7 @@ public class OtpService : IOtpService
 
         email = email.Trim();
 
-        var user = await _userManager.FindByEmailAsync(email);
+        var user = await ResolveUserAsync(email, storeId);
         if (user == null)
         {
             await delayedResponse.FailAsync();
@@ -146,6 +146,17 @@ public class OtpService : IOtpService
             Outcome = OtpVerifyOutcome.Success,
             User = user,
         };
+    }
+
+    protected virtual async Task<ApplicationUser> ResolveUserAsync(string email, string storeId)
+    {
+        var user = await _userManager.FindByEmailAsync(email);
+        if (user != null && !string.IsNullOrEmpty(storeId) && user.StoreId != storeId)
+        {
+            return null;
+        }
+
+        return user;
     }
 
     protected virtual async Task<int?> GetLockoutSecondsRemainingAsync(ApplicationUser user)

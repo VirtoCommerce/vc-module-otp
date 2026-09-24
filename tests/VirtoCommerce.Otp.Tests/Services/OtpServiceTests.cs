@@ -79,6 +79,36 @@ public class OtpServiceTests
     }
 
     [Fact]
+    public async Task RequestCodeAsync_Should_ReturnSent_But_SkipGeneration_When_StoreIdDoesNotMatchTheUsersStore()
+    {
+        // A caller-supplied storeId can only narrow the match, never widen it - a mismatch looks
+        // exactly like "no such user" rather than revealing the account belongs to another store.
+        var context = CreateContext();
+        var user = new ApplicationUser { Email = _email, StoreId = _storeId };
+        context.UserManager.Setup(x => x.FindByEmailAsync(_email)).ReturnsAsync(user);
+
+        var result = await context.Service.RequestCodeAsync(_email, storeId: "other-store");
+
+        Assert.Equal(OtpRequestOutcome.CodeSent, result.Outcome);
+        context.UserManager.Verify(x => x.GenerateUserTokenAsync(It.IsAny<ApplicationUser>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+        context.NotificationSender.Verify(x => x.ScheduleSendNotificationAsync(It.IsAny<Notification>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task RequestCodeAsync_Should_SendNotification_When_StoreIdMatchesTheUsersStore()
+    {
+        var context = CreateContext();
+        var user = new ApplicationUser { Email = _email, StoreId = _storeId };
+        context.UserManager.Setup(x => x.FindByEmailAsync(_email)).ReturnsAsync(user);
+        context.UserManager.Setup(x => x.GenerateUserTokenAsync(user, TokenOptions.DefaultEmailProvider, OtpService.TokenPurpose)).ReturnsAsync("123456");
+
+        var result = await context.Service.RequestCodeAsync(_email, storeId: _storeId);
+
+        Assert.Equal(OtpRequestOutcome.CodeSent, result.Outcome);
+        context.NotificationSender.Verify(x => x.ScheduleSendNotificationAsync(It.IsAny<Notification>()), Times.Once);
+    }
+
+    [Fact]
     public async Task VerifyCodeAsync_Should_ReturnInvalidCode_When_NoUserForEmail()
     {
         // Anti-enumeration: an unknown email must look the same as a wrong code.
@@ -88,6 +118,19 @@ public class OtpServiceTests
         var result = await context.Service.VerifyCodeAsync(_email, "123456");
 
         Assert.Equal(OtpVerifyOutcome.InvalidCode, result.Outcome);
+    }
+
+    [Fact]
+    public async Task VerifyCodeAsync_Should_ReturnInvalidCode_When_StoreIdDoesNotMatchTheUsersStore()
+    {
+        var context = CreateContext();
+        var user = new ApplicationUser { Email = _email, StoreId = _storeId };
+        context.UserManager.Setup(x => x.FindByEmailAsync(_email)).ReturnsAsync(user);
+
+        var result = await context.Service.VerifyCodeAsync(_email, "123456", storeId: "other-store");
+
+        Assert.Equal(OtpVerifyOutcome.InvalidCode, result.Outcome);
+        context.UserManager.Verify(x => x.VerifyUserTokenAsync(It.IsAny<ApplicationUser>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
     }
 
     [Fact]

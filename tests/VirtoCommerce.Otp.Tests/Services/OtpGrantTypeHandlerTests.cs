@@ -16,6 +16,7 @@ using VirtoCommerce.Otp.Data.Services;
 using VirtoCommerce.Platform.Core.Events;
 using VirtoCommerce.Platform.Core.Security;
 using VirtoCommerce.Platform.Core.Security.Events;
+using VirtoCommerce.Platform.Core.Security.SignInLog;
 using VirtoCommerce.Platform.Security.Exceptions;
 using VirtoCommerce.Platform.Security.OpenIddict;
 using Xunit;
@@ -58,11 +59,13 @@ public class OtpGrantTypeHandlerTests
             .ReturnsAsync(new OtpVerifyResult { Outcome = OtpVerifyOutcome.InvalidCode });
 
         var request = CreateRequest(_email, _code);
-        var actionResult = await context.Handler.HandleAsync(CreateRequestContext(request));
+        var requestContext = CreateRequestContext(request);
+        var actionResult = await context.Handler.HandleAsync(requestContext);
 
         var badRequest = Assert.IsType<BadRequestObjectResult>(actionResult);
         Assert.Equal("invalid_code", ((TokenResponse)badRequest.Value).Code);
         context.SignInManager.Verify(x => x.CanSignInAsync(It.IsAny<ApplicationUser>()), Times.Never);
+        Assert.Equal(ModuleConstants.Security.FailureReason.InvalidCode, requestContext.FailureReason);
     }
 
     [Fact]
@@ -89,12 +92,15 @@ public class OtpGrantTypeHandlerTests
             .ReturnsAsync(new OtpVerifyResult { Outcome = OtpVerifyOutcome.AccountLocked, LockoutSecondsRemaining = 245 });
 
         var request = CreateRequest(_email, _code);
-        var actionResult = await context.Handler.HandleAsync(CreateRequestContext(request, detailedErrors: false));
+        var requestContext = CreateRequestContext(request, detailedErrors: false);
+        var actionResult = await context.Handler.HandleAsync(requestContext);
 
         var badRequest = Assert.IsType<BadRequestObjectResult>(actionResult);
         var error = (TokenResponse)badRequest.Value;
         Assert.Equal("invalid_code", error.Code);
         Assert.Null(error.LockoutSecondsRemaining);
+        // The sign-in log gets the real reason even though the client only sees a generic error.
+        Assert.Equal(SignInFailureReason.LockedOut, requestContext.FailureReason);
     }
 
     [Fact]
@@ -119,10 +125,13 @@ public class OtpGrantTypeHandlerTests
             .ReturnsAsync(new OtpVerifyResult { Outcome = OtpVerifyOutcome.OtpDisabled });
 
         var request = CreateRequest(_email, _code);
-        var actionResult = await context.Handler.HandleAsync(CreateRequestContext(request, detailedErrors: false));
+        var requestContext = CreateRequestContext(request, detailedErrors: false);
+        var actionResult = await context.Handler.HandleAsync(requestContext);
 
         var badRequest = Assert.IsType<BadRequestObjectResult>(actionResult);
         Assert.Equal("invalid_code", ((TokenResponse)badRequest.Value).Code);
+        // The sign-in log gets the real reason even though the client only sees a generic error.
+        Assert.Equal(ModuleConstants.Security.FailureReason.OtpDisabled, requestContext.FailureReason);
     }
 
     [Fact]
@@ -200,11 +209,29 @@ public class OtpGrantTypeHandlerTests
         context.EventPublisher.Verify(x => x.Publish(It.IsAny<UserLoginEvent>()), Times.Once);
     }
 
-    private static OpenIddictRequest CreateRequest(string email, string code)
+    [Fact]
+    public async Task HandleAsync_Should_ForwardStoreId_When_Provided()
+    {
+        var context = CreateContext();
+        var user = new ApplicationUser { Email = _email };
+        context.OtpService.Setup(x => x.VerifyCodeAsync(_email, _code, "store-1"))
+            .ReturnsAsync(new OtpVerifyResult { Outcome = OtpVerifyOutcome.Success, User = user });
+        context.SignInManager.Setup(x => x.CanSignInAsync(user)).ReturnsAsync(true);
+        context.SignInManager.Object.UserManager = context.UserManager.Object;
+        context.SignInManager.Setup(x => x.CreateUserPrincipalAsync(user)).ReturnsAsync(new ClaimsPrincipal(new ClaimsIdentity()));
+
+        var request = CreateRequest(_email, _code, storeId: "store-1");
+        var actionResult = await context.Handler.HandleAsync(CreateRequestContext(request));
+
+        Assert.IsType<SignInResult>(actionResult);
+    }
+
+    private static OpenIddictRequest CreateRequest(string email, string code, string storeId = null)
     {
         var request = new OpenIddictRequest { GrantType = ModuleConstants.Security.GrantType };
         request.SetParameter("email", email);
         request.SetParameter("code", code);
+        request.SetParameter("storeId", storeId);
         return request;
     }
 

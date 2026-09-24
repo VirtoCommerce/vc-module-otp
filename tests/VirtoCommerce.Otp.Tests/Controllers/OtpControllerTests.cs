@@ -54,6 +54,19 @@ public class OtpControllerTests
         Assert.Equal(OtpRequestOutcome.CodeSent, result.Outcome);
     }
 
+    [Fact]
+    public async Task RequestCode_Should_ForwardStoreId_When_Provided()
+    {
+        var controller = CreateController(detailedErrors: false, out var otpService);
+        otpService.Setup(x => x.RequestCodeAsync(_email, "store-1"))
+            .ReturnsAsync(new OtpRequestResult { Outcome = OtpRequestOutcome.CodeSent, MaskedEmail = "b•••r@acme.com" });
+
+        var actionResult = await controller.RequestCode(new OtpRequest { Email = _email, StoreId = "store-1" });
+
+        var result = Assert.IsType<OtpRequestResult>(Assert.IsType<OkObjectResult>(actionResult.Result).Value);
+        Assert.Equal(OtpRequestOutcome.CodeSent, result.Outcome);
+    }
+
     private static OtpController CreateController(bool detailedErrors, out Mock<IOtpService> otpService)
     {
         otpService = new Mock<IOtpService>();

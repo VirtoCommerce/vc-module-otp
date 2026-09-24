@@ -26,7 +26,7 @@ public class OtpController : Controller
     [Route("request")]
     public async Task<ActionResult<OtpRequestResult>> RequestCode([FromBody] OtpRequest request)
     {
-        var result = await _otpService.RequestCodeAsync(request.Email);
+        var result = await _otpService.RequestCodeAsync(request.Email, request.StoreId);
 
         if (result.Outcome == OtpRequestOutcome.OtpDisabled && !_passwordLoginOptions.DetailedErrors)
         {

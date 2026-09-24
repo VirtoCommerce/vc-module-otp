@@ -4,6 +4,8 @@ namespace VirtoCommerce.Otp.Core.Models;
 
 public class OtpRequest
 {
+    public string StoreId { get; set; }
+
     [Required]
     [EmailAddress]
     [MaxLength(254)]
