@@ -36,15 +36,15 @@ public class OtpGrantTypeHandler : GrantTypeHandlerBase
 
     public override string GrantType => ModuleConstants.Security.GrantType;
 
-    protected override async Task<GrantAuthenticationResult> AuthenticateAsync(TokenRequestContext context)
+    protected override async Task<GrantValidationResult> ValidateGrantAsync(TokenRequestContext context)
     {
         var verifyResult = await VerifyAsync(context.Request);
         if (verifyResult.Outcome != OtpVerifyOutcome.Success)
         {
-            return GrantAuthenticationResult.Failed(BuildErrorResponse(verifyResult, context.DetailedErrors));
+            return GrantValidationResult.Failed(BuildErrorResponse(verifyResult, context.DetailedErrors));
         }
 
-        return GrantAuthenticationResult.Authenticated(verifyResult.User);
+        return GrantValidationResult.Authenticated(verifyResult.User);
     }
 
     private async Task<OtpVerifyResult> VerifyAsync(OpenIddictRequest request)
