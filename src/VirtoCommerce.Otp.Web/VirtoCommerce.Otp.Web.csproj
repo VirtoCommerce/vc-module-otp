@@ -19,7 +19,7 @@
     <Copy SourceFiles="@(NotificationTemplates)" DestinationFiles="$(PublishDir)\..\%(Identity)" />
   </Target>
   <ItemGroup>
-    <PackageReference Include="VirtoCommerce.NotificationsModule.TemplateLoader.FileSystem" Version="3.1012.0" />
+    <PackageReference Include="VirtoCommerce.NotificationsModule.TemplateLoader.FileSystem" Version="3.1009.3" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\VirtoCommerce.Otp.Core\VirtoCommerce.Otp.Core.csproj" />

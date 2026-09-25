@@ -1,6 +1,8 @@
 using System;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Identity;
+using VirtoCommerce.CustomerModule.Core.Model;
+using VirtoCommerce.CustomerModule.Core.Services;
 using VirtoCommerce.NotificationsModule.Core.Extensions;
 using VirtoCommerce.NotificationsModule.Core.Services;
 using VirtoCommerce.Otp.Core.Models;
@@ -9,88 +11,115 @@ using VirtoCommerce.Otp.Core.Services;
 using VirtoCommerce.Platform.Core.Common;
 using VirtoCommerce.Platform.Core.Security;
 using VirtoCommerce.Platform.Core.Settings;
+using VirtoCommerce.Platform.Security.Exceptions;
 using VirtoCommerce.StoreModule.Core.Model;
 using VirtoCommerce.StoreModule.Core.Services;
 using OtpModuleSettings = VirtoCommerce.Otp.Core.ModuleConstants.Settings.General;
 
 namespace VirtoCommerce.Otp.Data.Services;
 
-public class OtpService : IOtpService
+public class OtpService(
+    UserManager<ApplicationUser> userManager,
+    IStoreService storeService,
+    IMemberService memberService,
+    INotificationSearchService notificationSearchService,
+    INotificationSender notificationSender)
+    : IOtpService
 {
     public const string TokenPurpose = "OtpSignIn";
 
-    private readonly UserManager<ApplicationUser> _userManager;
-    private readonly IStoreService _storeService;
-    private readonly INotificationSearchService _notificationSearchService;
-    private readonly INotificationSender _notificationSender;
-
-    public OtpService(
-        UserManager<ApplicationUser> userManager,
-        IStoreService storeService,
-        INotificationSearchService notificationSearchService,
-        INotificationSender notificationSender)
+    public async Task<OtpRequestOutcome> RequestCodeAsync(string storeId, string email)
     {
-        _userManager = userManager;
-        _storeService = storeService;
-        _notificationSearchService = notificationSearchService;
-        _notificationSender = notificationSender;
-    }
-
-    public async Task<OtpRequestResult> RequestCodeAsync(string email, string storeId = null)
-    {
+        ArgumentException.ThrowIfNullOrEmpty(storeId);
         ArgumentException.ThrowIfNullOrEmpty(email);
 
-        email = email.Trim();
-
-        var user = await ResolveUserAsync(email, storeId);
-        if (user != null)
+        var store = await storeService.GetNoCloneAsync(storeId);
+        if (store == null)
         {
-            var effectiveStoreId = string.IsNullOrEmpty(storeId) ? user.StoreId : storeId;
-
-            if (!await IsOtpSignInEnabledAsync(effectiveStoreId))
-            {
-                return new OtpRequestResult
-                {
-                    Outcome = OtpRequestOutcome.OtpDisabled,
-                    MaskedEmail = MaskEmail(email),
-                };
-            }
-
-            var code = await _userManager.GenerateUserTokenAsync(user, TokenOptions.DefaultEmailProvider, TokenPurpose);
-
-            await SendCodeNotificationAsync(effectiveStoreId, email, code);
-
-            return new OtpRequestResult
-            {
-                Outcome = OtpRequestOutcome.CodeSent,
-                MaskedEmail = MaskEmail(email),
-            };
+            return OtpRequestOutcome.StoreNotFound;
         }
 
-        return new OtpRequestResult
+        if (!IsOtpSignInEnabled(store))
         {
-            Outcome = OtpRequestOutcome.UserNotFound,
-            MaskedEmail = MaskEmail(email),
-        };
+            return OtpRequestOutcome.OtpDisabled;
+        }
+
+        ApplicationUser user;
+
+        try
+        {
+            user = await userManager.FindByEmailAsync(email);
+        }
+        catch (DuplicateEmailException)
+        {
+            return OtpRequestOutcome.DuplicateEmail;
+        }
+
+        if (user == null)
+        {
+            return OtpRequestOutcome.UserNotFound;
+        }
+
+        if (!await userManager.GetLockoutEnabledAsync(user))
+        {
+            return OtpRequestOutcome.LockoutDisabled;
+        }
+
+        if (!await CanSignInToStoreAsync(user, store))
+        {
+            return OtpRequestOutcome.StoreAccessDenied;
+        }
+
+        var code = await userManager.GenerateUserTokenAsync(user, TokenOptions.DefaultEmailProvider, TokenPurpose);
+
+        await SendCodeNotificationAsync(storeId, email, code);
+
+        return OtpRequestOutcome.CodeSent;
     }
 
-    public async Task<OtpVerifyResult> VerifyCodeAsync(string email, string code, string storeId = null)
+    public async Task<OtpVerifyResult> VerifyCodeAsync(string storeId, string email, string code)
     {
+        ArgumentException.ThrowIfNullOrEmpty(storeId);
         ArgumentException.ThrowIfNullOrEmpty(email);
         ArgumentException.ThrowIfNullOrEmpty(code);
 
-        email = email.Trim();
+        var store = await storeService.GetNoCloneAsync(storeId);
+        if (store == null)
+        {
+            return new OtpVerifyResult { Outcome = OtpVerifyOutcome.StoreNotFound };
+        }
 
-        var user = await ResolveUserAsync(email, storeId);
+        if (!IsOtpSignInEnabled(store))
+        {
+            return new OtpVerifyResult { Outcome = OtpVerifyOutcome.OtpDisabled };
+        }
+
+        ApplicationUser user;
+
+        try
+        {
+            user = await userManager.FindByEmailAsync(email);
+        }
+        catch (DuplicateEmailException)
+        {
+            return new OtpVerifyResult { Outcome = OtpVerifyOutcome.DuplicateEmail };
+        }
+
         if (user == null)
+        {
+            return new OtpVerifyResult { Outcome = OtpVerifyOutcome.UserNotFound };
+        }
+
+        if (!await userManager.GetLockoutEnabledAsync(user))
         {
             return new OtpVerifyResult
             {
-                Outcome = OtpVerifyOutcome.InvalidCode,
+                Outcome = OtpVerifyOutcome.LockoutDisabled,
+                User = user,
             };
         }
 
-        if (await _userManager.IsLockedOutAsync(user))
+        if (await userManager.IsLockedOutAsync(user))
         {
             return new OtpVerifyResult
             {
@@ -100,38 +129,24 @@ public class OtpService : IOtpService
             };
         }
 
-        var isValid = await _userManager.VerifyUserTokenAsync(user, TokenOptions.DefaultEmailProvider, TokenPurpose, code);
+        var isValid = await userManager.VerifyUserTokenAsync(user, TokenOptions.DefaultEmailProvider, TokenPurpose, code);
         if (!isValid)
         {
-            await _userManager.AccessFailedAsync(user);
+            await userManager.AccessFailedAsync(user);
 
-            if (await _userManager.IsLockedOutAsync(user))
-            {
-                return new OtpVerifyResult
-                {
-                    Outcome = OtpVerifyOutcome.AccountLocked,
-                    LockoutSecondsRemaining = await GetLockoutSecondsRemainingAsync(user),
-                    User = user,
-                };
-            }
-
-            return new OtpVerifyResult
-            {
-                Outcome = OtpVerifyOutcome.InvalidCode,
-            };
+            return new OtpVerifyResult { Outcome = OtpVerifyOutcome.InvalidCode };
         }
 
-        var effectiveStoreId = string.IsNullOrEmpty(storeId) ? user.StoreId : storeId;
-        if (!await IsOtpSignInEnabledAsync(effectiveStoreId))
+        if (!await CanSignInToStoreAsync(user, store))
         {
             return new OtpVerifyResult
             {
-                Outcome = OtpVerifyOutcome.OtpDisabled,
+                Outcome = OtpVerifyOutcome.StoreAccessDenied,
                 User = user,
             };
         }
 
-        await _userManager.ResetAccessFailedCountAsync(user);
+        await userManager.ResetAccessFailedCountAsync(user);
 
         return new OtpVerifyResult
         {
@@ -140,29 +155,22 @@ public class OtpService : IOtpService
         };
     }
 
-    protected virtual async Task<ApplicationUser> ResolveUserAsync(string email, string storeId)
+    protected virtual async Task<bool> CanSignInToStoreAsync(ApplicationUser user, Store store)
     {
-        var user = await _userManager.FindByEmailAsync(email);
-        if (user == null)
+        if (user.IsAdministrator || await memberService.GetByIdAsync(user.MemberId) is not Contact)
         {
-            return null;
+            return true;
         }
 
-        if (!string.IsNullOrEmpty(storeId))
-        {
-            var allowedStoreIds = await _storeService.GetUserAllowedStoreIdsAsync(user);
-            if (!allowedStoreIds.Contains(storeId))
-            {
-                return null;
-            }
-        }
-
-        return user;
+        return
+            !string.IsNullOrEmpty(user.StoreId) && (
+                store.Id == user.StoreId ||
+                store.TrustedGroups.Contains(user.StoreId));
     }
 
     protected virtual async Task<int?> GetLockoutSecondsRemainingAsync(ApplicationUser user)
     {
-        var lockoutEnd = await _userManager.GetLockoutEndDateAsync(user);
+        var lockoutEnd = await userManager.GetLockoutEndDateAsync(user);
         if (lockoutEnd == null)
         {
             return null;
@@ -173,32 +181,16 @@ public class OtpService : IOtpService
 
     protected virtual async Task SendCodeNotificationAsync(string storeId, string email, string code)
     {
-        var notification = await _notificationSearchService.GetNotificationAsync<OtpSignInEmailNotification>(new TenantIdentity(storeId, nameof(Store)));
+        var notification = await notificationSearchService.GetNotificationAsync<OtpSignInEmailNotification>(new TenantIdentity(storeId, nameof(Store)));
 
         notification.To = email;
         notification.Code = code;
 
-        await _notificationSender.ScheduleSendNotificationAsync(notification);
+        await notificationSender.ScheduleSendNotificationAsync(notification);
     }
 
-    protected virtual async Task<bool> IsOtpSignInEnabledAsync(string storeId)
+    protected virtual bool IsOtpSignInEnabled(Store store)
     {
-        var store = await _storeService.GetNoCloneAsync(storeId);
-
-        return store?.Settings.GetValue<bool>(OtpModuleSettings.OtpSignInEnabled) ?? false;
-    }
-
-    protected virtual string MaskEmail(string email)
-    {
-        var atIndex = email.IndexOf('@');
-        if (atIndex <= 1)
-        {
-            return email;
-        }
-
-        var localPart = email[..atIndex];
-        var domainPart = email[atIndex..];
-
-        return $"{localPart[0]}•••{localPart[^1]}{domainPart}";
+        return store.Settings.GetValue<bool>(OtpModuleSettings.OtpSignInEnabled);
     }
 }

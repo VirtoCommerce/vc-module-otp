@@ -4,6 +4,7 @@ namespace VirtoCommerce.Otp.Core.Models;
 
 public class OtpRequest
 {
+    [Required]
     public string StoreId { get; set; }
 
     [Required]

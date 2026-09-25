@@ -11,40 +11,59 @@ namespace VirtoCommerce.Otp.Web.Controllers.Api;
 [ApiController]
 [Route("api/otp")]
 [AllowAnonymous]
-public class OtpController : Controller
+public class OtpController(
+    IOtpService otpService,
+    IOptions<PasswordLoginOptions> passwordLoginOptions)
+    : Controller
 {
-    private readonly IOtpService _otpService;
-    private readonly PasswordLoginOptions _passwordLoginOptions;
-
-    public OtpController(IOtpService otpService, IOptions<PasswordLoginOptions> passwordLoginOptions)
-    {
-        _otpService = otpService;
-        _passwordLoginOptions = passwordLoginOptions.Value;
-    }
+    private readonly PasswordLoginOptions _passwordLoginOptions = passwordLoginOptions.Value;
 
     [HttpPost]
     [Route("request")]
     public async Task<ActionResult<OtpRequestResult>> RequestCode([FromBody] OtpRequest request)
     {
         var delayedResponse = DelayedResponse.Create(nameof(OtpController), nameof(RequestCode));
+        var outcome = await otpService.RequestCodeAsync(request.StoreId, request.Email);
 
-        var result = await _otpService.RequestCodeAsync(request.Email, request.StoreId);
+        var result = new OtpRequestResult
+        {
+            Outcome = outcome,
+            MaskedEmail = MaskEmail(request.Email),
+        };
 
-        if (result.Outcome == OtpRequestOutcome.CodeSent)
+        if (outcome == OtpRequestOutcome.CodeSent)
         {
             await delayedResponse.SucceedAsync();
         }
         else
         {
+            if (!_passwordLoginOptions.DetailedErrors &&
+                outcome is
+                    OtpRequestOutcome.UserNotFound or
+                    OtpRequestOutcome.DuplicateEmail or
+                    OtpRequestOutcome.LockoutDisabled or
+                    OtpRequestOutcome.StoreAccessDenied)
+            {
+                result.Outcome = OtpRequestOutcome.CodeSent;
+            }
+
             await delayedResponse.FailAsync();
         }
 
-        if (result.Outcome == OtpRequestOutcome.UserNotFound ||
-            (result.Outcome == OtpRequestOutcome.OtpDisabled && !_passwordLoginOptions.DetailedErrors))
+        return Ok(result);
+    }
+
+    protected virtual string MaskEmail(string email)
+    {
+        var atIndex = email.IndexOf('@');
+        if (atIndex <= 1)
         {
-            result.Outcome = OtpRequestOutcome.CodeSent;
+            return email;
         }
 
-        return Ok(result);
+        var localPart = email[..atIndex];
+        var domainPart = email[atIndex..];
+
+        return $"{localPart[0]}•••{localPart[^1]}{domainPart}";
     }
 }

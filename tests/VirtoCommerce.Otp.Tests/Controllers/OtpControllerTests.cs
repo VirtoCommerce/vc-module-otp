@@ -14,70 +14,36 @@ namespace VirtoCommerce.Otp.Tests.Controllers;
 public class OtpControllerTests
 {
     private const string _email = "buyer@acme.com";
+    private const string _storeId = "store-1";
 
-    [Fact]
-    public async Task RequestCode_Should_ReturnDisabled_When_DetailedErrorsEnabled()
+    [Theory]
+    [InlineData(OtpRequestOutcome.CodeSent, false, OtpRequestOutcome.CodeSent)]
+    [InlineData(OtpRequestOutcome.OtpDisabled, true, OtpRequestOutcome.OtpDisabled)]
+    [InlineData(OtpRequestOutcome.OtpDisabled, false, OtpRequestOutcome.OtpDisabled)]
+    [InlineData(OtpRequestOutcome.UserNotFound, true, OtpRequestOutcome.UserNotFound)]
+    [InlineData(OtpRequestOutcome.UserNotFound, false, OtpRequestOutcome.CodeSent)]
+    [InlineData(OtpRequestOutcome.DuplicateEmail, true, OtpRequestOutcome.DuplicateEmail)]
+    [InlineData(OtpRequestOutcome.DuplicateEmail, false, OtpRequestOutcome.CodeSent)]
+    [InlineData(OtpRequestOutcome.LockoutDisabled, true, OtpRequestOutcome.LockoutDisabled)]
+    [InlineData(OtpRequestOutcome.LockoutDisabled, false, OtpRequestOutcome.CodeSent)]
+    [InlineData(OtpRequestOutcome.StoreAccessDenied, true, OtpRequestOutcome.StoreAccessDenied)]
+    [InlineData(OtpRequestOutcome.StoreAccessDenied, false, OtpRequestOutcome.CodeSent)]
+    public async Task RequestCode_Should_ReturnExpectedOutcome(OtpRequestOutcome serviceOutcome, bool detailedErrors, OtpRequestOutcome expectedOutcome)
     {
-        var controller = CreateController(detailedErrors: true, out var otpService);
-        otpService.Setup(x => x.RequestCodeAsync(_email))
-            .ReturnsAsync(new OtpRequestResult { Outcome = OtpRequestOutcome.OtpDisabled, MaskedEmail = "b•••r@acme.com" });
+        // Arrange
+        var controller = CreateController(detailedErrors, out var otpService);
 
-        var actionResult = await controller.RequestCode(new OtpRequest { Email = _email });
+        otpService
+            .Setup(x => x.RequestCodeAsync(_storeId, _email))
+            .ReturnsAsync(serviceOutcome);
 
+        // Act
+        var actionResult = await controller.RequestCode(new OtpRequest { Email = _email, StoreId = _storeId });
+
+        // Assert
         var result = Assert.IsType<OtpRequestResult>(Assert.IsType<OkObjectResult>(actionResult.Result).Value);
-        Assert.Equal(OtpRequestOutcome.OtpDisabled, result.Outcome);
-    }
-
-    [Fact]
-    public async Task RequestCode_Should_ReturnSent_When_DetailedErrorsDisabled()
-    {
-        var controller = CreateController(detailedErrors: false, out var otpService);
-        otpService.Setup(x => x.RequestCodeAsync(_email))
-            .ReturnsAsync(new OtpRequestResult { Outcome = OtpRequestOutcome.OtpDisabled, MaskedEmail = "b•••r@acme.com" });
-
-        var actionResult = await controller.RequestCode(new OtpRequest { Email = _email });
-
-        var result = Assert.IsType<OtpRequestResult>(Assert.IsType<OkObjectResult>(actionResult.Result).Value);
-        Assert.Equal(OtpRequestOutcome.CodeSent, result.Outcome);
-    }
-
-    [Fact]
-    public async Task RequestCode_Should_ReturnSent_Unchanged_When_CodeWasActuallySent()
-    {
-        var controller = CreateController(detailedErrors: false, out var otpService);
-        otpService.Setup(x => x.RequestCodeAsync(_email))
-            .ReturnsAsync(new OtpRequestResult { Outcome = OtpRequestOutcome.CodeSent, MaskedEmail = "b•••r@acme.com" });
-
-        var actionResult = await controller.RequestCode(new OtpRequest { Email = _email });
-
-        var result = Assert.IsType<OtpRequestResult>(Assert.IsType<OkObjectResult>(actionResult.Result).Value);
-        Assert.Equal(OtpRequestOutcome.CodeSent, result.Outcome);
-    }
-
-    [Fact]
-    public async Task RequestCode_Should_ReturnSent_When_UserNotFound()
-    {
-        var controller = CreateController(detailedErrors: true, out var otpService);
-        otpService.Setup(x => x.RequestCodeAsync(_email))
-            .ReturnsAsync(new OtpRequestResult { Outcome = OtpRequestOutcome.UserNotFound, MaskedEmail = "b•••r@acme.com" });
-
-        var actionResult = await controller.RequestCode(new OtpRequest { Email = _email });
-
-        var result = Assert.IsType<OtpRequestResult>(Assert.IsType<OkObjectResult>(actionResult.Result).Value);
-        Assert.Equal(OtpRequestOutcome.CodeSent, result.Outcome);
-    }
-
-    [Fact]
-    public async Task RequestCode_Should_ForwardStoreId_When_Provided()
-    {
-        var controller = CreateController(detailedErrors: false, out var otpService);
-        otpService.Setup(x => x.RequestCodeAsync(_email, "store-1"))
-            .ReturnsAsync(new OtpRequestResult { Outcome = OtpRequestOutcome.CodeSent, MaskedEmail = "b•••r@acme.com" });
-
-        var actionResult = await controller.RequestCode(new OtpRequest { Email = _email, StoreId = "store-1" });
-
-        var result = Assert.IsType<OtpRequestResult>(Assert.IsType<OkObjectResult>(actionResult.Result).Value);
-        Assert.Equal(OtpRequestOutcome.CodeSent, result.Outcome);
+        Assert.Equal(expectedOutcome, result.Outcome);
+        Assert.Equal("b•••r@acme.com", result.MaskedEmail);
     }
 
     private static OtpController CreateController(bool detailedErrors, out Mock<IOtpService> otpService)

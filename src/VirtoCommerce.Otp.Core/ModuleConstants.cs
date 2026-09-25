@@ -9,10 +9,20 @@ public static class ModuleConstants
     {
         public const string GrantType = "otp_email";
 
+        public static class Parameters
+        {
+            public const string StoreId = "storeId";
+            public const string Email = "email";
+            public const string Code = "code";
+        }
+
         public static class FailureReason
         {
-            public const string InvalidCode = "InvalidCode";
+            public const string MissingParameter = "MissingParameter";
+            public const string StoreNotFound = "StoreNotFound";
             public const string OtpDisabled = "OtpDisabled";
+            public const string LockoutDisabled = "LockoutDisabled";
+            public const string InvalidCode = "InvalidCode";
         }
     }
 

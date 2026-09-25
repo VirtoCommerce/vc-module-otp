@@ -1,13 +1,15 @@
-using System.Text.Json.Serialization;
-
 namespace VirtoCommerce.Otp.Core.Models;
 
-[JsonConverter(typeof(JsonStringEnumConverter))]
 public enum OtpVerifyOutcome
 {
     Undefined,
     Success,
-    InvalidCode,
+    StoreNotFound,
     OtpDisabled,
+    UserNotFound,
+    DuplicateEmail,
+    LockoutDisabled,
     AccountLocked,
+    InvalidCode,
+    StoreAccessDenied,
 }
