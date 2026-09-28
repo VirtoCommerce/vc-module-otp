@@ -70,10 +70,11 @@ public class OtpGrantTypeHandlerTests
     {
         // Arrange
         var context = CreateContext();
+        var user = new ApplicationUser { Id = "user-1", Email = _email };
 
         context.OtpService
             .Setup(x => x.VerifyCodeAsync(_storeId, _email, _code))
-            .ReturnsAsync(new OtpVerifyResult { Outcome = OtpVerifyOutcome.InvalidCode });
+            .ReturnsAsync(new OtpVerifyResult { Outcome = OtpVerifyOutcome.InvalidCode, User = user });
 
         var request = CreateRequest(_email, _code);
         var requestContext = CreateRequestContext(request);
@@ -87,30 +88,13 @@ public class OtpGrantTypeHandlerTests
         context.SignInManager.Verify(x => x.CanSignInAsync(It.IsAny<ApplicationUser>()), Times.Never);
         Assert.Equal(ModuleConstants.Security.FailureReason.InvalidCode, requestContext.FailureReason);
         Assert.False(requestContext.SignInResult.Succeeded);
+        context.EventPublisher.Verify(x => x.Publish(It.Is<UserSignInAttemptEvent>(e => e.Succeeded == false && e.UserId == "user-1")), Times.Once);
     }
 
-    [Fact]
-    public async Task HandleAsync_Should_LogTheAttemptedEmail_When_NoUserWasResolved()
-    {
-        // Arrange
-        var context = CreateContext();
-
-        context.OtpService
-            .Setup(x => x.VerifyCodeAsync(_storeId, _email, _code))
-            .ReturnsAsync(new OtpVerifyResult { Outcome = OtpVerifyOutcome.UserNotFound });
-
-        var request = CreateRequest(_email, _code);
-
-        // Act
-        await context.Handler.HandleAsync(CreateRequestContext(request));
-
-        // Assert
-        context.EventPublisher.Verify(x => x.Publish(It.Is<UserSignInAttemptEvent>(e =>
-            e.Succeeded == false && e.UserName == _email && e.UserId == null)), Times.Once);
-    }
-
-    [Fact]
-    public async Task HandleAsync_Should_LogTheResolvedUser_When_AccountIsLocked()
+    [Theory]
+    [InlineData(true, "account_locked", 245)]
+    [InlineData(false, "invalid_code", null)]
+    public async Task HandleAsync_Should_HideAccountLocked_Unless_DetailedErrorsEnabled(bool detailedErrors, string expectedCode, int? expectedSecondsRemaining)
     {
         // Arrange
         var context = CreateContext();
@@ -121,49 +105,7 @@ public class OtpGrantTypeHandlerTests
             .ReturnsAsync(new OtpVerifyResult { Outcome = OtpVerifyOutcome.AccountLocked, LockoutSecondsRemaining = 245, User = user });
 
         var request = CreateRequest(_email, _code);
-
-        // Act
-        await context.Handler.HandleAsync(CreateRequestContext(request));
-
-        // Assert
-        context.EventPublisher.Verify(x => x.Publish(It.Is<UserSignInAttemptEvent>(e =>
-            e.Succeeded == false && e.UserId == "user-1")), Times.Once);
-    }
-
-    [Fact]
-    public async Task HandleAsync_Should_ReturnAccountLocked_With_SecondsRemaining_When_UserIsLockedOut_And_DetailedErrorsEnabled()
-    {
-        // Arrange
-        var context = CreateContext();
-
-        context.OtpService
-            .Setup(x => x.VerifyCodeAsync(_storeId, _email, _code))
-            .ReturnsAsync(new OtpVerifyResult { Outcome = OtpVerifyOutcome.AccountLocked, LockoutSecondsRemaining = 245 });
-
-        var request = CreateRequest(_email, _code);
-
-        // Act
-        var actionResult = await context.Handler.HandleAsync(CreateRequestContext(request, detailedErrors: true));
-
-        // Assert
-        var badRequest = Assert.IsType<BadRequestObjectResult>(actionResult);
-        var error = (TokenResponse)badRequest.Value;
-        Assert.Equal("account_locked", error.Code);
-        Assert.Equal(245, error.LockoutSecondsRemaining);
-    }
-
-    [Fact]
-    public async Task HandleAsync_Should_ReturnInvalidCode_When_UserIsLockedOut_And_DetailedErrorsDisabled()
-    {
-        // Arrange
-        var context = CreateContext();
-
-        context.OtpService
-            .Setup(x => x.VerifyCodeAsync(_storeId, _email, _code))
-            .ReturnsAsync(new OtpVerifyResult { Outcome = OtpVerifyOutcome.AccountLocked, LockoutSecondsRemaining = 245 });
-
-        var request = CreateRequest(_email, _code);
-        var requestContext = CreateRequestContext(request, detailedErrors: false);
+        var requestContext = CreateRequestContext(request, detailedErrors);
 
         // Act
         var actionResult = await context.Handler.HandleAsync(requestContext);
@@ -171,11 +113,13 @@ public class OtpGrantTypeHandlerTests
         // Assert
         var badRequest = Assert.IsType<BadRequestObjectResult>(actionResult);
         var error = (TokenResponse)badRequest.Value;
-        Assert.Equal("invalid_code", error.Code);
-        Assert.Null(error.LockoutSecondsRemaining);
-        // The sign-in log gets the real reason even though the client only sees a generic error.
+        Assert.Equal(expectedCode, error.Code);
+        Assert.Equal(expectedSecondsRemaining, error.LockoutSecondsRemaining);
         Assert.Equal(SignInFailureReason.LockedOut, requestContext.FailureReason);
         Assert.True(requestContext.SignInResult.IsLockedOut);
+
+        context.EventPublisher.Verify(x => x.Publish(It.Is<UserSignInAttemptEvent>(e =>
+            e.Succeeded == false && e.UserId == "user-1")), Times.Once);
     }
 
     [Theory]
@@ -301,8 +245,10 @@ public class OtpGrantTypeHandlerTests
         Assert.Equal(SignInFailureReason.Forbidden, requestContext.FailureReason);
     }
 
-    [Fact]
-    public async Task HandleAsync_Should_ReturnUserNotFound_When_NoUserForEmail_And_DetailedErrorsEnabled()
+    [Theory]
+    [InlineData(true, "user_not_found")]
+    [InlineData(false, "invalid_code")]
+    public async Task HandleAsync_Should_HideUserNotFound_Unless_DetailedErrorsEnabled(bool detailedErrors, string expectedCode)
     {
         // Arrange
         var context = CreateContext();
@@ -312,35 +258,18 @@ public class OtpGrantTypeHandlerTests
             .ReturnsAsync(new OtpVerifyResult { Outcome = OtpVerifyOutcome.UserNotFound });
 
         var request = CreateRequest(_email, _code);
-
-        // Act
-        var actionResult = await context.Handler.HandleAsync(CreateRequestContext(request, detailedErrors: true));
-
-        // Assert
-        var badRequest = Assert.IsType<BadRequestObjectResult>(actionResult);
-        Assert.Equal("user_not_found", ((TokenResponse)badRequest.Value).Code);
-    }
-
-    [Fact]
-    public async Task HandleAsync_Should_ReturnInvalidCode_When_NoUserForEmail_And_DetailedErrorsDisabled()
-    {
-        // Arrange
-        var context = CreateContext();
-
-        context.OtpService
-            .Setup(x => x.VerifyCodeAsync(_storeId, _email, _code))
-            .ReturnsAsync(new OtpVerifyResult { Outcome = OtpVerifyOutcome.UserNotFound });
-
-        var request = CreateRequest(_email, _code);
-        var requestContext = CreateRequestContext(request, detailedErrors: false);
+        var requestContext = CreateRequestContext(request, detailedErrors);
 
         // Act
         var actionResult = await context.Handler.HandleAsync(requestContext);
 
         // Assert
         var badRequest = Assert.IsType<BadRequestObjectResult>(actionResult);
-        Assert.Equal("invalid_code", ((TokenResponse)badRequest.Value).Code);
+        Assert.Equal(expectedCode, ((TokenResponse)badRequest.Value).Code);
         Assert.Equal(SignInFailureReason.UserNotFound, requestContext.FailureReason);
+
+        context.EventPublisher.Verify(x => x.Publish(It.Is<UserSignInAttemptEvent>(e =>
+            e.Succeeded == false && e.UserName == _email && e.UserId == null)), Times.Once);
     }
 
     [Fact]

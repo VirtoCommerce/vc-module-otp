@@ -5,6 +5,7 @@ using VirtoCommerce.CustomerModule.Core.Model;
 using VirtoCommerce.CustomerModule.Core.Services;
 using VirtoCommerce.NotificationsModule.Core.Extensions;
 using VirtoCommerce.NotificationsModule.Core.Services;
+using VirtoCommerce.Otp.Core;
 using VirtoCommerce.Otp.Core.Models;
 using VirtoCommerce.Otp.Core.Notifications;
 using VirtoCommerce.Otp.Core.Services;
@@ -26,8 +27,6 @@ public class OtpService(
     INotificationSender notificationSender)
     : IOtpService
 {
-    public const string TokenPurpose = "OtpSignIn";
-
     public async Task<OtpRequestOutcome> RequestCodeAsync(string storeId, string email)
     {
         ArgumentException.ThrowIfNullOrEmpty(storeId);
@@ -70,9 +69,9 @@ public class OtpService(
             return OtpRequestOutcome.StoreAccessDenied;
         }
 
-        var code = await userManager.GenerateUserTokenAsync(user, TokenOptions.DefaultEmailProvider, TokenPurpose);
+        var code = await userManager.GenerateUserTokenAsync(user, TokenOptions.DefaultEmailProvider, ModuleConstants.Security.TokenPurpose);
 
-        await SendCodeNotificationAsync(storeId, email, code);
+        await SendCodeNotificationAsync(store, user, email, code);
 
         return OtpRequestOutcome.CodeSent;
     }
@@ -129,12 +128,16 @@ public class OtpService(
             };
         }
 
-        var isValid = await userManager.VerifyUserTokenAsync(user, TokenOptions.DefaultEmailProvider, TokenPurpose, code);
+        var isValid = await userManager.VerifyUserTokenAsync(user, TokenOptions.DefaultEmailProvider, ModuleConstants.Security.TokenPurpose, code);
         if (!isValid)
         {
             await userManager.AccessFailedAsync(user);
 
-            return new OtpVerifyResult { Outcome = OtpVerifyOutcome.InvalidCode };
+            return new OtpVerifyResult
+            {
+                Outcome = OtpVerifyOutcome.InvalidCode,
+                User = user,
+            };
         }
 
         if (!await CanSignInToStoreAsync(user, store))
@@ -179,12 +182,14 @@ public class OtpService(
         return (int)Math.Max(0, Math.Ceiling((lockoutEnd.Value - DateTimeOffset.UtcNow).TotalSeconds));
     }
 
-    protected virtual async Task SendCodeNotificationAsync(string storeId, string email, string code)
+    protected virtual async Task SendCodeNotificationAsync(Store store, ApplicationUser user, string email, string code)
     {
-        var notification = await notificationSearchService.GetNotificationAsync<OtpSignInEmailNotification>(new TenantIdentity(storeId, nameof(Store)));
+        var notification = await notificationSearchService.GetNotificationAsync<OtpSignInEmailNotification>(new TenantIdentity(store.Id, nameof(Store)));
+        var contact = await memberService.GetByIdAsync(user.MemberId) as Contact;
 
         notification.To = email;
         notification.Code = code;
+        notification.LanguageCode = contact?.DefaultLanguage ?? store.DefaultLanguage;
 
         await notificationSender.ScheduleSendNotificationAsync(notification);
     }

@@ -7,7 +7,9 @@ public static class ModuleConstants
 {
     public static class Security
     {
+        public const string SignInType = "OTP";
         public const string GrantType = "otp_email";
+        public const string TokenPurpose = "OtpSignIn";
 
         public static class Parameters
         {

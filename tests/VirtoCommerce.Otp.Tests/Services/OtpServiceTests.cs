@@ -7,6 +7,7 @@ using VirtoCommerce.CustomerModule.Core.Model;
 using VirtoCommerce.CustomerModule.Core.Services;
 using VirtoCommerce.NotificationsModule.Core.Model;
 using VirtoCommerce.NotificationsModule.Core.Services;
+using VirtoCommerce.Otp.Core;
 using VirtoCommerce.Otp.Core.Models;
 using VirtoCommerce.Otp.Core.Notifications;
 using VirtoCommerce.Otp.Data.Services;
@@ -28,6 +29,8 @@ public class OtpServiceTests
     private const string _email = "buyer@acme.com";
     private const string _contactId = "contact-1";
     private const string _employeeId = "employee-1";
+    private const string _storeLanguage = "en-US";
+    private const string _contactLanguage = "de-DE";
 
     [Fact]
     public async Task RequestCodeAsync_Should_ReturnSent_And_SendNotification_When_UserExists()
@@ -41,7 +44,7 @@ public class OtpServiceTests
             .ReturnsAsync(user);
 
         context.UserManager
-            .Setup(x => x.GenerateUserTokenAsync(user, TokenOptions.DefaultEmailProvider, OtpService.TokenPurpose))
+            .Setup(x => x.GenerateUserTokenAsync(user, TokenOptions.DefaultEmailProvider, ModuleConstants.Security.TokenPurpose))
             .ReturnsAsync("123456");
 
         // Act
@@ -49,7 +52,7 @@ public class OtpServiceTests
 
         // Assert
         Assert.Equal(OtpRequestOutcome.CodeSent, outcome);
-        context.NotificationSender.Verify(x => x.ScheduleSendNotificationAsync(It.IsAny<Notification>()), Times.Once);
+        context.NotificationSender.Verify(x => x.ScheduleSendNotificationAsync(It.Is<Notification>(n => n.LanguageCode == _contactLanguage)), Times.Once);
     }
 
     [Fact]
@@ -64,7 +67,7 @@ public class OtpServiceTests
             .ReturnsAsync(user);
 
         context.UserManager
-            .Setup(x => x.GenerateUserTokenAsync(user, TokenOptions.DefaultEmailProvider, OtpService.TokenPurpose))
+            .Setup(x => x.GenerateUserTokenAsync(user, TokenOptions.DefaultEmailProvider, ModuleConstants.Security.TokenPurpose))
             .ReturnsAsync("123456");
 
         // Act
@@ -187,7 +190,7 @@ public class OtpServiceTests
             .ReturnsAsync(user);
 
         context.UserManager
-            .Setup(x => x.GenerateUserTokenAsync(user, TokenOptions.DefaultEmailProvider, OtpService.TokenPurpose))
+            .Setup(x => x.GenerateUserTokenAsync(user, TokenOptions.DefaultEmailProvider, ModuleConstants.Security.TokenPurpose))
             .ReturnsAsync("123456");
 
         // Act
@@ -209,7 +212,7 @@ public class OtpServiceTests
             .ReturnsAsync(user);
 
         context.UserManager
-            .Setup(x => x.GenerateUserTokenAsync(user, TokenOptions.DefaultEmailProvider, OtpService.TokenPurpose))
+            .Setup(x => x.GenerateUserTokenAsync(user, TokenOptions.DefaultEmailProvider, ModuleConstants.Security.TokenPurpose))
             .ReturnsAsync("123456");
 
         // Act
@@ -217,6 +220,7 @@ public class OtpServiceTests
 
         // Assert
         Assert.Equal(OtpRequestOutcome.CodeSent, outcome);
+        context.NotificationSender.Verify(x => x.ScheduleSendNotificationAsync(It.Is<Notification>(n => n.LanguageCode == _storeLanguage)), Times.Once);
     }
 
     [Fact]
@@ -335,7 +339,7 @@ public class OtpServiceTests
             .ReturnsAsync(user);
 
         context.UserManager
-            .Setup(x => x.VerifyUserTokenAsync(user, TokenOptions.DefaultEmailProvider, OtpService.TokenPurpose, "123456"))
+            .Setup(x => x.VerifyUserTokenAsync(user, TokenOptions.DefaultEmailProvider, ModuleConstants.Security.TokenPurpose, "123456"))
             .ReturnsAsync(true);
 
         // Act
@@ -359,7 +363,7 @@ public class OtpServiceTests
             .ReturnsAsync(user);
 
         context.UserManager
-            .Setup(x => x.VerifyUserTokenAsync(user, TokenOptions.DefaultEmailProvider, OtpService.TokenPurpose, "000000"))
+            .Setup(x => x.VerifyUserTokenAsync(user, TokenOptions.DefaultEmailProvider, ModuleConstants.Security.TokenPurpose, "000000"))
             .ReturnsAsync(false);
 
         // Act
@@ -464,7 +468,7 @@ public class OtpServiceTests
             .ReturnsAsync(false);
 
         context.UserManager
-            .Setup(x => x.VerifyUserTokenAsync(user, TokenOptions.DefaultEmailProvider, OtpService.TokenPurpose, "000000"))
+            .Setup(x => x.VerifyUserTokenAsync(user, TokenOptions.DefaultEmailProvider, ModuleConstants.Security.TokenPurpose, "000000"))
             .ReturnsAsync(false);
 
         // Act
@@ -472,6 +476,7 @@ public class OtpServiceTests
 
         // Assert
         Assert.Equal(OtpVerifyOutcome.InvalidCode, result.Outcome);
+        Assert.Same(user, result.User);
         context.UserManager.Verify(x => x.AccessFailedAsync(user), Times.Once);
     }
 
@@ -492,7 +497,7 @@ public class OtpServiceTests
             .ReturnsAsync(user);
 
         context.UserManager
-            .Setup(x => x.VerifyUserTokenAsync(user, TokenOptions.DefaultEmailProvider, OtpService.TokenPurpose, "000000"))
+            .Setup(x => x.VerifyUserTokenAsync(user, TokenOptions.DefaultEmailProvider, ModuleConstants.Security.TokenPurpose, "000000"))
             .ReturnsAsync(false);
 
         // Act
@@ -519,7 +524,7 @@ public class OtpServiceTests
             .ReturnsAsync(false);
 
         context.UserManager
-            .Setup(x => x.VerifyUserTokenAsync(user, TokenOptions.DefaultEmailProvider, OtpService.TokenPurpose, "654321"))
+            .Setup(x => x.VerifyUserTokenAsync(user, TokenOptions.DefaultEmailProvider, ModuleConstants.Security.TokenPurpose, "654321"))
             .ReturnsAsync(true);
 
         // Act
@@ -535,6 +540,7 @@ public class OtpServiceTests
         var store = new Store
         {
             Id = _storeId,
+            DefaultLanguage = _storeLanguage,
             TrustedGroups = [_trustedStoreId],
             Settings =
             [
@@ -552,7 +558,7 @@ public class OtpServiceTests
 
         memberService
             .Setup(x => x.GetByIdAsync(_contactId, null, null))
-            .ReturnsAsync(new Contact { Id = _contactId });
+            .ReturnsAsync(new Contact { Id = _contactId, DefaultLanguage = _contactLanguage });
 
         memberService
             .Setup(x => x.GetByIdAsync(_employeeId, null, null))

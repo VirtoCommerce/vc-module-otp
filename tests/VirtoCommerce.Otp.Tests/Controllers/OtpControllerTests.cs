@@ -18,6 +18,8 @@ public class OtpControllerTests
 
     [Theory]
     [InlineData(OtpRequestOutcome.CodeSent, false, OtpRequestOutcome.CodeSent)]
+    [InlineData(OtpRequestOutcome.StoreNotFound, true, OtpRequestOutcome.StoreNotFound)]
+    [InlineData(OtpRequestOutcome.StoreNotFound, false, OtpRequestOutcome.StoreNotFound)]
     [InlineData(OtpRequestOutcome.OtpDisabled, true, OtpRequestOutcome.OtpDisabled)]
     [InlineData(OtpRequestOutcome.OtpDisabled, false, OtpRequestOutcome.OtpDisabled)]
     [InlineData(OtpRequestOutcome.UserNotFound, true, OtpRequestOutcome.UserNotFound)]

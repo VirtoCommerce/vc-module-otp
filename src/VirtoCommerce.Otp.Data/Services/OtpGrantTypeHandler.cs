@@ -26,7 +26,7 @@ public class OtpGrantTypeHandler(
 {
     public override string GrantType => ModuleConstants.Security.GrantType;
 
-    protected override string SignInType => "OTP";
+    protected override string SignInType => ModuleConstants.Security.SignInType;
 
     protected override async Task<GrantValidationResult> ValidateGrantAsync(TokenRequestContext context)
     {
@@ -38,14 +38,7 @@ public class OtpGrantTypeHandler(
 
         if (missingParameters.Count > 0)
         {
-            context.FailureReason = ModuleConstants.Security.FailureReason.MissingParameter;
-
-            return GrantValidationResult.Fail(new TokenResponse
-            {
-                Error = Errors.InvalidRequest,
-                Code = "missing_parameter",
-                ErrorDescription = $"Missing required parameters: {string.Join(", ", missingParameters)}.",
-            });
+            return GrantValidationResult.Fail(BuildErrorResponse(context, missingParameters));
         }
 
         var verifyResult = await otpService.VerifyCodeAsync(storeId, email, code);
@@ -53,13 +46,7 @@ public class OtpGrantTypeHandler(
 
         if (verifyResult.Outcome != OtpVerifyOutcome.Success)
         {
-            context.FailureReason = GetFailureReason(verifyResult.Outcome);
-
-            return new GrantValidationResult
-            {
-                Error = BuildErrorResponse(verifyResult, context.DetailedErrors),
-                User = verifyResult.User,
-            };
+            return GrantValidationResult.Fail(BuildErrorResponse(context, verifyResult), verifyResult.User);
         }
 
         return GrantValidationResult.Succeed(verifyResult.User);
@@ -68,7 +55,6 @@ public class OtpGrantTypeHandler(
     protected override UserSignInAttemptEvent BuildSignInAttemptEvent(TokenRequestContext context, bool succeeded)
     {
         var result = base.BuildSignInAttemptEvent(context, succeeded);
-
         result.UserName ??= (string)context.Request.GetParameter(ModuleConstants.Security.Parameters.Email);
 
         return result;
@@ -95,9 +81,22 @@ public class OtpGrantTypeHandler(
         };
     }
 
-    private static string GetFailureReason(OtpVerifyOutcome outcome)
+    private static TokenResponse BuildErrorResponse(TokenRequestContext context, List<string> missingParameters)
     {
-        return outcome switch
+        context.FailureReason = ModuleConstants.Security.FailureReason.MissingParameter;
+
+        return new TokenResponse
+        {
+            Error = Errors.InvalidRequest,
+            Code = "missing_parameter",
+            ErrorDescription = $"Missing required parameters: {string.Join(", ", missingParameters)}.",
+        };
+    }
+
+    private static TokenResponse BuildErrorResponse(TokenRequestContext context, OtpVerifyResult verifyResult)
+    {
+        // The real reason goes to the sign-in log, even when the client gets a generic error.
+        context.FailureReason = verifyResult.Outcome switch
         {
             OtpVerifyOutcome.StoreNotFound => ModuleConstants.Security.FailureReason.StoreNotFound,
             OtpVerifyOutcome.OtpDisabled => ModuleConstants.Security.FailureReason.OtpDisabled,
@@ -109,10 +108,8 @@ public class OtpGrantTypeHandler(
             OtpVerifyOutcome.StoreAccessDenied => SignInFailureReason.Forbidden,
             _ => SignInFailureReason.Unknown,
         };
-    }
 
-    private static TokenResponse BuildErrorResponse(OtpVerifyResult verifyResult, bool detailedErrors)
-    {
+        // The client sees details only with DetailedErrors; otherwise user-revealing outcomes look like an invalid code.
         return verifyResult.Outcome switch
         {
             OtpVerifyOutcome.StoreNotFound => new TokenResponse
@@ -127,20 +124,20 @@ public class OtpGrantTypeHandler(
                 Code = "otp_disabled",
                 ErrorDescription = "OTP sign-in is disabled for this store.",
             },
-            OtpVerifyOutcome.UserNotFound when detailedErrors => new TokenResponse
+            OtpVerifyOutcome.UserNotFound when context.DetailedErrors => new TokenResponse
             {
                 Error = Errors.InvalidGrant,
                 Code = "user_not_found",
                 ErrorDescription = "No user with this email was found.",
             },
-            OtpVerifyOutcome.DuplicateEmail when detailedErrors => SecurityErrorDescriber.DuplicateEmailLoginAttempt(),
-            OtpVerifyOutcome.LockoutDisabled when detailedErrors => new TokenResponse
+            OtpVerifyOutcome.DuplicateEmail when context.DetailedErrors => SecurityErrorDescriber.DuplicateEmailLoginAttempt(),
+            OtpVerifyOutcome.LockoutDisabled when context.DetailedErrors => new TokenResponse
             {
                 Error = Errors.InvalidGrant,
                 Code = "lockout_disabled",
                 ErrorDescription = "OTP sign-in is not available for accounts without lockout protection.",
             },
-            OtpVerifyOutcome.AccountLocked when detailedErrors => new TokenResponse
+            OtpVerifyOutcome.AccountLocked when context.DetailedErrors => new TokenResponse
             {
                 Error = Errors.InvalidGrant,
                 Code = "account_locked",
