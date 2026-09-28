@@ -95,7 +95,7 @@ public class OtpGrantTypeHandler(
 
     private static TokenResponse BuildErrorResponse(TokenRequestContext context, OtpVerifyResult verifyResult)
     {
-        // The real reason goes to the sign-in log, even when the client gets a generic error.
+        // The sign-in log always gets the real reason.
         context.FailureReason = verifyResult.Outcome switch
         {
             OtpVerifyOutcome.StoreNotFound => ModuleConstants.Security.FailureReason.StoreNotFound,
@@ -109,7 +109,7 @@ public class OtpGrantTypeHandler(
             _ => SignInFailureReason.Unknown,
         };
 
-        // The client sees details only with DetailedErrors; otherwise user-revealing outcomes look like an invalid code.
+        // Outcomes that reveal whether the user exists are reported only when detailed errors are enabled.
         return verifyResult.Outcome switch
         {
             OtpVerifyOutcome.StoreNotFound => new TokenResponse

@@ -15,10 +15,10 @@
   <description>Enables customers to sign in to the storefront with a one-time code emailed to them, instead of a password.</description>
 
   <authors>
-    <author>Dmitry Grishin</author>
+    <author>Virto Commerce</author>
   </authors>
   <owners>
-    <owner>VirtoCommerce</owner>
+    <owner>Virto Commerce</owner>
   </owners>
 
   <projectUrl>https://github.com/VirtoCommerce/vc-module-otp</projectUrl>
