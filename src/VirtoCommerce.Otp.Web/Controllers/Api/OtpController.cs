@@ -1,9 +1,11 @@
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using VirtoCommerce.Otp.Core.Models;
 using VirtoCommerce.Otp.Core.Services;
+using VirtoCommerce.Otp.Data.Services;
 using VirtoCommerce.Platform.Core.Security;
 
 namespace VirtoCommerce.Otp.Web.Controllers.Api;
@@ -27,7 +29,7 @@ public class OtpController(
 
         var result = new OtpRequestResult
         {
-            Outcome = outcome,
+            Error = GetError(outcome, _passwordLoginOptions.DetailedErrors),
             MaskedEmail = MaskEmail(request.Email),
         };
 
@@ -37,20 +39,30 @@ public class OtpController(
         }
         else
         {
-            if (!_passwordLoginOptions.DetailedErrors &&
-                outcome is
-                    OtpRequestOutcome.UserNotFound or
-                    OtpRequestOutcome.DuplicateEmail or
-                    OtpRequestOutcome.LockoutDisabled or
-                    OtpRequestOutcome.StoreAccessDenied)
-            {
-                result.Outcome = OtpRequestOutcome.CodeSent;
-            }
-
             await delayedResponse.FailAsync();
         }
 
         return Ok(result);
+    }
+
+    private static IdentityError GetError(OtpRequestOutcome outcome, bool detailedErrors)
+    {
+        // Outcomes that reveal whether the user exists are reported only when detailed errors are enabled.
+        return outcome switch
+        {
+            OtpRequestOutcome.CodeSent => null,
+            OtpRequestOutcome.StoreNotFound => OtpErrorDescriber.StoreNotFound(),
+            OtpRequestOutcome.OtpDisabled => OtpErrorDescriber.OtpDisabled(),
+            OtpRequestOutcome.UserNotFound when detailedErrors => OtpErrorDescriber.UserNotFound(),
+            OtpRequestOutcome.UserNotFound => null,
+            OtpRequestOutcome.DuplicateEmail when detailedErrors => OtpErrorDescriber.DuplicateEmail(),
+            OtpRequestOutcome.DuplicateEmail => null,
+            OtpRequestOutcome.LockoutDisabled when detailedErrors => OtpErrorDescriber.LockoutDisabled(),
+            OtpRequestOutcome.LockoutDisabled => null,
+            OtpRequestOutcome.StoreAccessDenied when detailedErrors => OtpErrorDescriber.StoreAccessDenied(),
+            OtpRequestOutcome.StoreAccessDenied => null,
+            _ => OtpErrorDescriber.LoginFailed(),
+        };
     }
 
     protected virtual string MaskEmail(string email)

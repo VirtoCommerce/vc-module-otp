@@ -85,12 +85,7 @@ public class OtpGrantTypeHandler(
     {
         context.FailureReason = ModuleConstants.Security.FailureReason.MissingParameter;
 
-        return new TokenResponse
-        {
-            Error = Errors.InvalidRequest,
-            Code = "missing_parameter",
-            ErrorDescription = $"Missing required parameters: {string.Join(", ", missingParameters)}.",
-        };
+        return CreateTokenResponse(Errors.InvalidRequest, OtpErrorDescriber.MissingParameters(missingParameters));
     }
 
     private static TokenResponse BuildErrorResponse(TokenRequestContext context, OtpVerifyResult verifyResult)
@@ -112,50 +107,25 @@ public class OtpGrantTypeHandler(
         // Outcomes that reveal whether the user exists are reported only when detailed errors are enabled.
         return verifyResult.Outcome switch
         {
-            OtpVerifyOutcome.StoreNotFound => new TokenResponse
-            {
-                Error = Errors.InvalidRequest,
-                Code = "store_not_found",
-                ErrorDescription = "The store was not found.",
-            },
-            OtpVerifyOutcome.OtpDisabled => new TokenResponse
-            {
-                Error = Errors.InvalidGrant,
-                Code = "otp_disabled",
-                ErrorDescription = "OTP sign-in is disabled for this store.",
-            },
-            OtpVerifyOutcome.UserNotFound when context.DetailedErrors => new TokenResponse
-            {
-                Error = Errors.InvalidGrant,
-                Code = "user_not_found",
-                ErrorDescription = "No user with this email was found.",
-            },
-            OtpVerifyOutcome.DuplicateEmail when context.DetailedErrors => SecurityErrorDescriber.DuplicateEmailLoginAttempt(),
-            OtpVerifyOutcome.LockoutDisabled when context.DetailedErrors => new TokenResponse
-            {
-                Error = Errors.InvalidGrant,
-                Code = "lockout_disabled",
-                ErrorDescription = "OTP sign-in is not available for accounts without lockout protection.",
-            },
-            OtpVerifyOutcome.AccountLocked when context.DetailedErrors => new TokenResponse
-            {
-                Error = Errors.InvalidGrant,
-                Code = "account_locked",
-                ErrorDescription = "Too many incorrect attempts. Please try again later.",
-                LockoutSecondsRemaining = verifyResult.LockoutSecondsRemaining,
-            },
-            OtpVerifyOutcome.StoreAccessDenied => new TokenResponse
-            {
-                Error = Errors.InvalidGrant,
-                Code = "user_cannot_login_in_store",
-                ErrorDescription = "Access denied. You cannot sign in to the current store",
-            },
-            _ => new TokenResponse
-            {
-                Error = Errors.InvalidGrant,
-                Code = "invalid_code",
-                ErrorDescription = "The code is invalid or has expired.",
-            },
+            OtpVerifyOutcome.StoreNotFound => CreateTokenResponse(Errors.InvalidRequest, OtpErrorDescriber.StoreNotFound()),
+            OtpVerifyOutcome.OtpDisabled => CreateTokenResponse(Errors.InvalidGrant, OtpErrorDescriber.OtpDisabled()),
+            OtpVerifyOutcome.UserNotFound when context.DetailedErrors => CreateTokenResponse(Errors.InvalidGrant, OtpErrorDescriber.UserNotFound()),
+            OtpVerifyOutcome.DuplicateEmail when context.DetailedErrors => CreateTokenResponse(Errors.InvalidGrant, OtpErrorDescriber.DuplicateEmail()),
+            OtpVerifyOutcome.LockoutDisabled when context.DetailedErrors => CreateTokenResponse(Errors.InvalidGrant, OtpErrorDescriber.LockoutDisabled()),
+            OtpVerifyOutcome.AccountLocked when context.DetailedErrors => CreateTokenResponse(Errors.InvalidGrant, OtpErrorDescriber.AccountLocked(), verifyResult.LockoutSecondsRemaining),
+            OtpVerifyOutcome.StoreAccessDenied => CreateTokenResponse(Errors.InvalidGrant, OtpErrorDescriber.StoreAccessDenied()),
+            _ => CreateTokenResponse(Errors.InvalidGrant, OtpErrorDescriber.InvalidCode()),
+        };
+    }
+
+    private static TokenResponse CreateTokenResponse(string error, IdentityError identityError, int? lockoutSecondsRemaining = null)
+    {
+        return new TokenResponse
+        {
+            Error = error,
+            Code = identityError.Code,
+            ErrorDescription = identityError.Description,
+            LockoutSecondsRemaining = lockoutSecondsRemaining,
         };
     }
 }

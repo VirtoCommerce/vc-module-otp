@@ -17,20 +17,20 @@ public class OtpControllerTests
     private const string _storeId = "store-1";
 
     [Theory]
-    [InlineData(OtpRequestOutcome.CodeSent, false, OtpRequestOutcome.CodeSent)]
-    [InlineData(OtpRequestOutcome.StoreNotFound, true, OtpRequestOutcome.StoreNotFound)]
-    [InlineData(OtpRequestOutcome.StoreNotFound, false, OtpRequestOutcome.StoreNotFound)]
-    [InlineData(OtpRequestOutcome.OtpDisabled, true, OtpRequestOutcome.OtpDisabled)]
-    [InlineData(OtpRequestOutcome.OtpDisabled, false, OtpRequestOutcome.OtpDisabled)]
-    [InlineData(OtpRequestOutcome.UserNotFound, true, OtpRequestOutcome.UserNotFound)]
-    [InlineData(OtpRequestOutcome.UserNotFound, false, OtpRequestOutcome.CodeSent)]
-    [InlineData(OtpRequestOutcome.DuplicateEmail, true, OtpRequestOutcome.DuplicateEmail)]
-    [InlineData(OtpRequestOutcome.DuplicateEmail, false, OtpRequestOutcome.CodeSent)]
-    [InlineData(OtpRequestOutcome.LockoutDisabled, true, OtpRequestOutcome.LockoutDisabled)]
-    [InlineData(OtpRequestOutcome.LockoutDisabled, false, OtpRequestOutcome.CodeSent)]
-    [InlineData(OtpRequestOutcome.StoreAccessDenied, true, OtpRequestOutcome.StoreAccessDenied)]
-    [InlineData(OtpRequestOutcome.StoreAccessDenied, false, OtpRequestOutcome.CodeSent)]
-    public async Task RequestCode_Should_ReturnExpectedOutcome(OtpRequestOutcome serviceOutcome, bool detailedErrors, OtpRequestOutcome expectedOutcome)
+    [InlineData(OtpRequestOutcome.CodeSent, false, null)]
+    [InlineData(OtpRequestOutcome.StoreNotFound, true, "store_not_found")]
+    [InlineData(OtpRequestOutcome.StoreNotFound, false, "store_not_found")]
+    [InlineData(OtpRequestOutcome.OtpDisabled, true, "otp_disabled")]
+    [InlineData(OtpRequestOutcome.OtpDisabled, false, "otp_disabled")]
+    [InlineData(OtpRequestOutcome.UserNotFound, true, "user_not_found")]
+    [InlineData(OtpRequestOutcome.UserNotFound, false, null)]
+    [InlineData(OtpRequestOutcome.DuplicateEmail, true, "duplicate_email_login_attempt")]
+    [InlineData(OtpRequestOutcome.DuplicateEmail, false, null)]
+    [InlineData(OtpRequestOutcome.LockoutDisabled, true, "lockout_disabled")]
+    [InlineData(OtpRequestOutcome.LockoutDisabled, false, null)]
+    [InlineData(OtpRequestOutcome.StoreAccessDenied, true, "user_cannot_login_in_store")]
+    [InlineData(OtpRequestOutcome.StoreAccessDenied, false, null)]
+    public async Task RequestCode_Should_ReturnExpectedResult(OtpRequestOutcome serviceOutcome, bool detailedErrors, string expectedErrorCode)
     {
         // Arrange
         var controller = CreateController(detailedErrors, out var otpService);
@@ -44,7 +44,8 @@ public class OtpControllerTests
 
         // Assert
         var result = Assert.IsType<OtpRequestResult>(Assert.IsType<OkObjectResult>(actionResult.Result).Value);
-        Assert.Equal(expectedOutcome, result.Outcome);
+        Assert.Equal(expectedErrorCode is null, result.Succeeded);
+        Assert.Equal(expectedErrorCode, result.Error?.Code);
         Assert.Equal("b•••r@acme.com", result.MaskedEmail);
     }
 

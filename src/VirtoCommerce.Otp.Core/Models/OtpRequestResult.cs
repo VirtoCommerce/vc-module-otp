@@ -1,7 +1,10 @@
+using Microsoft.AspNetCore.Identity;
+
 namespace VirtoCommerce.Otp.Core.Models;
 
 public class OtpRequestResult
 {
-    public OtpRequestOutcome Outcome { get; set; }
+    public bool Succeeded => Error is null;
+    public IdentityError Error { get; set; }
     public string MaskedEmail { get; set; }
 }
