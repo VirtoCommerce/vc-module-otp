@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Identity;
@@ -112,10 +113,29 @@ public class OtpGrantTypeHandler(
             OtpVerifyOutcome.UserNotFound when context.DetailedErrors => CreateTokenResponse(Errors.InvalidGrant, OtpErrorDescriber.UserNotFound()),
             OtpVerifyOutcome.DuplicateEmail when context.DetailedErrors => CreateTokenResponse(Errors.InvalidGrant, OtpErrorDescriber.DuplicateEmail()),
             OtpVerifyOutcome.LockoutDisabled when context.DetailedErrors => CreateTokenResponse(Errors.InvalidGrant, OtpErrorDescriber.LockoutDisabled()),
-            OtpVerifyOutcome.AccountLocked when context.DetailedErrors => CreateTokenResponse(Errors.InvalidGrant, OtpErrorDescriber.AccountLocked(), verifyResult.LockoutSecondsRemaining),
+            OtpVerifyOutcome.AccountLocked when context.DetailedErrors => CreateTokenResponse(Errors.InvalidGrant, GetLockoutError(verifyResult.User), GetLockoutSecondsRemaining(verifyResult.User)),
             OtpVerifyOutcome.StoreAccessDenied => CreateTokenResponse(Errors.InvalidGrant, OtpErrorDescriber.StoreAccessDenied()),
             _ => CreateTokenResponse(Errors.InvalidGrant, OtpErrorDescriber.InvalidCode()),
         };
+    }
+
+    private static IdentityError GetLockoutError(ApplicationUser user)
+    {
+        return user.LockoutEnd == DateTime.MaxValue.ToUniversalTime()
+            ? OtpErrorDescriber.UserIsLockedOut()
+            : OtpErrorDescriber.UserIsTemporaryLockedOut();
+    }
+
+    private static int? GetLockoutSecondsRemaining(ApplicationUser user)
+    {
+        if (user.LockoutEnd is null)
+        {
+            return null;
+        }
+
+        var seconds = Math.Ceiling((user.LockoutEnd.Value - DateTimeOffset.UtcNow).TotalSeconds);
+
+        return (int)Math.Clamp(seconds, 0, int.MaxValue);
     }
 
     private static TokenResponse CreateTokenResponse(string error, IdentityError identityError, int? lockoutSecondsRemaining = null)

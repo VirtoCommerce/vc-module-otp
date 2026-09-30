@@ -428,7 +428,6 @@ public class OtpServiceTests
         // Arrange
         var context = CreateContext();
         var user = new ApplicationUser { Email = _email, MemberId = _contactId, StoreId = _storeId };
-        var lockoutEnd = DateTimeOffset.UtcNow.AddMinutes(10);
 
         context.UserManager
             .Setup(x => x.FindByEmailAsync(_email))
@@ -438,16 +437,11 @@ public class OtpServiceTests
             .Setup(x => x.IsLockedOutAsync(user))
             .ReturnsAsync(true);
 
-        context.UserManager
-            .Setup(x => x.GetLockoutEndDateAsync(user))
-            .ReturnsAsync(lockoutEnd);
-
         // Act
         var result = await context.Service.VerifyCodeAsync(_storeId, _email, "123456");
 
         // Assert
         Assert.Equal(OtpVerifyOutcome.AccountLocked, result.Outcome);
-        Assert.True(result.LockoutSecondsRemaining > 0);
         Assert.Same(user, result.User);
         context.UserManager.Verify(x => x.VerifyUserTokenAsync(It.IsAny<ApplicationUser>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
     }

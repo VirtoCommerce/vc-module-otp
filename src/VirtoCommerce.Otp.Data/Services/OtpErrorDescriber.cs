@@ -40,11 +40,9 @@ public static class OtpErrorDescriber
         Description = "OTP sign-in is not available for accounts without lockout protection.",
     };
 
-    public static IdentityError AccountLocked() => new()
-    {
-        Code = "account_locked",
-        Description = "Too many incorrect attempts. Please try again later.",
-    };
+    public static IdentityError UserIsLockedOut() => ToIdentityError(SecurityErrorDescriber.UserIsLockedOut());
+
+    public static IdentityError UserIsTemporaryLockedOut() => ToIdentityError(SecurityErrorDescriber.UserIsTemporaryLockedOut());
 
     public static IdentityError StoreAccessDenied() => new()
     {

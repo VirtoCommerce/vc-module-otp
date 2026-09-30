@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Security.Claims;
 using System.Threading.Tasks;
@@ -74,7 +75,7 @@ public class OtpGrantTypeHandlerTests
 
         context.OtpService
             .Setup(x => x.VerifyCodeAsync(_storeId, _email, _code))
-            .ReturnsAsync(new OtpVerifyResult { Outcome = OtpVerifyOutcome.InvalidCode, User = user });
+            .ReturnsAsync(OtpVerifyResult.Fail(OtpVerifyOutcome.InvalidCode, user));
 
         var request = CreateRequest(_email, _code);
         var requestContext = CreateRequestContext(request);
@@ -92,17 +93,24 @@ public class OtpGrantTypeHandlerTests
     }
 
     [Theory]
-    [InlineData(true, "account_locked", 245)]
-    [InlineData(false, "invalid_code", null)]
-    public async Task HandleAsync_Should_HideAccountLocked_Unless_DetailedErrorsEnabled(bool detailedErrors, string expectedCode, int? expectedSecondsRemaining)
+    [InlineData(true, false, "user_is_temporary_locked_out", 245)]
+    [InlineData(true, true, "user_is_locked_out", int.MaxValue)]
+    [InlineData(false, false, "invalid_code", null)]
+    public async Task HandleAsync_Should_HideAccountLocked_Unless_DetailedErrorsEnabled(bool detailedErrors, bool permanentLockout, string expectedCode, int? expectedSecondsRemaining)
     {
         // Arrange
         var context = CreateContext();
-        var user = new ApplicationUser { Id = "user-1", Email = _email };
+
+        var user = new ApplicationUser
+        {
+            Id = "user-1",
+            Email = _email,
+            LockoutEnd = permanentLockout ? DateTime.MaxValue.ToUniversalTime() : DateTimeOffset.UtcNow.AddSeconds(245),
+        };
 
         context.OtpService
             .Setup(x => x.VerifyCodeAsync(_storeId, _email, _code))
-            .ReturnsAsync(new OtpVerifyResult { Outcome = OtpVerifyOutcome.AccountLocked, LockoutSecondsRemaining = 245, User = user });
+            .ReturnsAsync(OtpVerifyResult.Fail(OtpVerifyOutcome.AccountLocked, user));
 
         var request = CreateRequest(_email, _code);
         var requestContext = CreateRequestContext(request, detailedErrors);
@@ -132,7 +140,7 @@ public class OtpGrantTypeHandlerTests
 
         context.OtpService
             .Setup(x => x.VerifyCodeAsync(_storeId, _email, _code))
-            .ReturnsAsync(new OtpVerifyResult { Outcome = OtpVerifyOutcome.OtpDisabled });
+            .ReturnsAsync(OtpVerifyResult.Fail(OtpVerifyOutcome.OtpDisabled));
 
         var request = CreateRequest(_email, _code);
         var requestContext = CreateRequestContext(request, detailedErrors);
@@ -156,7 +164,7 @@ public class OtpGrantTypeHandlerTests
 
         context.OtpService
             .Setup(x => x.VerifyCodeAsync(_storeId, _email, _code))
-            .ReturnsAsync(new OtpVerifyResult { Outcome = OtpVerifyOutcome.StoreNotFound });
+            .ReturnsAsync(OtpVerifyResult.Fail(OtpVerifyOutcome.StoreNotFound));
 
         var request = CreateRequest(_email, _code);
         var requestContext = CreateRequestContext(request, detailedErrors);
@@ -182,7 +190,7 @@ public class OtpGrantTypeHandlerTests
 
         context.OtpService
             .Setup(x => x.VerifyCodeAsync(_storeId, _email, _code))
-            .ReturnsAsync(new OtpVerifyResult { Outcome = OtpVerifyOutcome.DuplicateEmail });
+            .ReturnsAsync(OtpVerifyResult.Fail(OtpVerifyOutcome.DuplicateEmail));
 
         var request = CreateRequest(_email, _code);
         var requestContext = CreateRequestContext(request, detailedErrors);
@@ -206,7 +214,7 @@ public class OtpGrantTypeHandlerTests
 
         context.OtpService
             .Setup(x => x.VerifyCodeAsync(_storeId, _email, _code))
-            .ReturnsAsync(new OtpVerifyResult { Outcome = OtpVerifyOutcome.LockoutDisabled });
+            .ReturnsAsync(OtpVerifyResult.Fail(OtpVerifyOutcome.LockoutDisabled));
 
         var request = CreateRequest(_email, _code);
         var requestContext = CreateRequestContext(request, detailedErrors);
@@ -231,7 +239,7 @@ public class OtpGrantTypeHandlerTests
 
         context.OtpService
             .Setup(x => x.VerifyCodeAsync(_storeId, _email, _code))
-            .ReturnsAsync(new OtpVerifyResult { Outcome = OtpVerifyOutcome.StoreAccessDenied, User = user });
+            .ReturnsAsync(OtpVerifyResult.Fail(OtpVerifyOutcome.StoreAccessDenied, user));
 
         var request = CreateRequest(_email, _code);
         var requestContext = CreateRequestContext(request, detailedErrors);
@@ -255,7 +263,7 @@ public class OtpGrantTypeHandlerTests
 
         context.OtpService
             .Setup(x => x.VerifyCodeAsync(_storeId, _email, _code))
-            .ReturnsAsync(new OtpVerifyResult { Outcome = OtpVerifyOutcome.UserNotFound });
+            .ReturnsAsync(OtpVerifyResult.Fail(OtpVerifyOutcome.UserNotFound));
 
         var request = CreateRequest(_email, _code);
         var requestContext = CreateRequestContext(request, detailedErrors);
@@ -281,7 +289,7 @@ public class OtpGrantTypeHandlerTests
 
         context.OtpService
             .Setup(x => x.VerifyCodeAsync(_storeId, _email, _code))
-            .ReturnsAsync(new OtpVerifyResult { Outcome = OtpVerifyOutcome.Success, User = user });
+            .ReturnsAsync(OtpVerifyResult.Succeed(user));
 
         context.SignInManager
             .Setup(x => x.CanSignInAsync(user))
@@ -312,7 +320,7 @@ public class OtpGrantTypeHandlerTests
 
         context.OtpService
             .Setup(x => x.VerifyCodeAsync(_storeId, _email, _code))
-            .ReturnsAsync(new OtpVerifyResult { Outcome = OtpVerifyOutcome.Success, User = user });
+            .ReturnsAsync(OtpVerifyResult.Succeed(user));
 
         context.SignInManager
             .Setup(x => x.CanSignInAsync(user))
@@ -337,7 +345,7 @@ public class OtpGrantTypeHandlerTests
 
         context.OtpService
             .Setup(x => x.VerifyCodeAsync(_storeId, _email, _code))
-            .ReturnsAsync(new OtpVerifyResult { Outcome = OtpVerifyOutcome.Success, User = user });
+            .ReturnsAsync(OtpVerifyResult.Succeed(user));
 
         context.SignInManager
             .Setup(x => x.CanSignInAsync(user))
@@ -371,7 +379,7 @@ public class OtpGrantTypeHandlerTests
 
         context.OtpService
             .Setup(x => x.VerifyCodeAsync(_storeId, _email, _code))
-            .ReturnsAsync(new OtpVerifyResult { Outcome = OtpVerifyOutcome.Success, User = user });
+            .ReturnsAsync(OtpVerifyResult.Succeed(user));
 
         context.SignInManager
             .Setup(x => x.CanSignInAsync(user))
