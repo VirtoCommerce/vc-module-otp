@@ -1,6 +1,6 @@
 namespace VirtoCommerce.Otp.Core.Models;
 
-public enum OtpVerifyOutcome
+public enum OtpOutcome
 {
     Undefined,
     Success,

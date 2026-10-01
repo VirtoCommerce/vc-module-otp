@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Identity;
@@ -45,7 +44,7 @@ public class OtpGrantTypeHandler(
         var verifyResult = await otpService.VerifyCodeAsync(storeId, email, code);
         context.SignInResult = GetSignInResult(verifyResult.Outcome);
 
-        if (verifyResult.Outcome != OtpVerifyOutcome.Success)
+        if (verifyResult.Outcome != OtpOutcome.Success)
         {
             return GrantValidationResult.Fail(BuildErrorResponse(context, verifyResult), verifyResult.User);
         }
@@ -72,12 +71,12 @@ public class OtpGrantTypeHandler(
         return value;
     }
 
-    private static SignInResult GetSignInResult(OtpVerifyOutcome outcome)
+    private static SignInResult GetSignInResult(OtpOutcome outcome)
     {
         return outcome switch
         {
-            OtpVerifyOutcome.Success => SignInResult.Success,
-            OtpVerifyOutcome.AccountLocked => SignInResult.LockedOut,
+            OtpOutcome.Success => SignInResult.Success,
+            OtpOutcome.AccountLocked => SignInResult.LockedOut,
             _ => SignInResult.Failed,
         };
     }
@@ -89,53 +88,34 @@ public class OtpGrantTypeHandler(
         return CreateTokenResponse(Errors.InvalidRequest, OtpErrorDescriber.MissingParameters(missingParameters));
     }
 
-    private static TokenResponse BuildErrorResponse(TokenRequestContext context, OtpVerifyResult verifyResult)
+    private static TokenResponse BuildErrorResponse(TokenRequestContext context, OtpResult verifyResult)
     {
         // The sign-in log always gets the real reason.
         context.FailureReason = verifyResult.Outcome switch
         {
-            OtpVerifyOutcome.StoreNotFound => ModuleConstants.Security.FailureReason.StoreNotFound,
-            OtpVerifyOutcome.OtpDisabled => ModuleConstants.Security.FailureReason.OtpDisabled,
-            OtpVerifyOutcome.InvalidCode => ModuleConstants.Security.FailureReason.InvalidCode,
-            OtpVerifyOutcome.UserNotFound => SignInFailureReason.UserNotFound,
-            OtpVerifyOutcome.DuplicateEmail => SignInFailureReason.DuplicateEmail,
-            OtpVerifyOutcome.LockoutDisabled => ModuleConstants.Security.FailureReason.LockoutDisabled,
-            OtpVerifyOutcome.AccountLocked => SignInFailureReason.LockedOut,
-            OtpVerifyOutcome.StoreAccessDenied => SignInFailureReason.Forbidden,
+            OtpOutcome.StoreNotFound => ModuleConstants.Security.FailureReason.StoreNotFound,
+            OtpOutcome.OtpDisabled => ModuleConstants.Security.FailureReason.OtpDisabled,
+            OtpOutcome.InvalidCode => ModuleConstants.Security.FailureReason.InvalidCode,
+            OtpOutcome.UserNotFound => SignInFailureReason.UserNotFound,
+            OtpOutcome.DuplicateEmail => SignInFailureReason.DuplicateEmail,
+            OtpOutcome.LockoutDisabled => ModuleConstants.Security.FailureReason.LockoutDisabled,
+            OtpOutcome.AccountLocked => SignInFailureReason.LockedOut,
+            OtpOutcome.StoreAccessDenied => SignInFailureReason.Forbidden,
             _ => SignInFailureReason.Unknown,
         };
 
         // Outcomes that reveal whether the user exists are reported only when detailed errors are enabled.
         return verifyResult.Outcome switch
         {
-            OtpVerifyOutcome.StoreNotFound => CreateTokenResponse(Errors.InvalidRequest, OtpErrorDescriber.StoreNotFound()),
-            OtpVerifyOutcome.OtpDisabled => CreateTokenResponse(Errors.InvalidGrant, OtpErrorDescriber.OtpDisabled()),
-            OtpVerifyOutcome.UserNotFound when context.DetailedErrors => CreateTokenResponse(Errors.InvalidGrant, OtpErrorDescriber.UserNotFound()),
-            OtpVerifyOutcome.DuplicateEmail when context.DetailedErrors => CreateTokenResponse(Errors.InvalidGrant, OtpErrorDescriber.DuplicateEmail()),
-            OtpVerifyOutcome.LockoutDisabled when context.DetailedErrors => CreateTokenResponse(Errors.InvalidGrant, OtpErrorDescriber.LockoutDisabled()),
-            OtpVerifyOutcome.AccountLocked when context.DetailedErrors => CreateTokenResponse(Errors.InvalidGrant, GetLockoutError(verifyResult.User), GetLockoutSecondsRemaining(verifyResult.User)),
-            OtpVerifyOutcome.StoreAccessDenied => CreateTokenResponse(Errors.InvalidGrant, OtpErrorDescriber.StoreAccessDenied()),
+            OtpOutcome.StoreNotFound => CreateTokenResponse(Errors.InvalidRequest, OtpErrorDescriber.StoreNotFound()),
+            OtpOutcome.OtpDisabled => CreateTokenResponse(Errors.InvalidGrant, OtpErrorDescriber.OtpDisabled()),
+            OtpOutcome.UserNotFound when context.DetailedErrors => CreateTokenResponse(Errors.InvalidGrant, OtpErrorDescriber.UserNotFound()),
+            OtpOutcome.DuplicateEmail when context.DetailedErrors => CreateTokenResponse(Errors.InvalidGrant, OtpErrorDescriber.DuplicateEmail()),
+            OtpOutcome.LockoutDisabled when context.DetailedErrors => CreateTokenResponse(Errors.InvalidGrant, OtpErrorDescriber.LockoutDisabled()),
+            OtpOutcome.AccountLocked when context.DetailedErrors => CreateTokenResponse(Errors.InvalidGrant, OtpErrorDescriber.GetLockoutError(verifyResult.User), OtpErrorDescriber.GetLockoutSecondsRemaining(verifyResult.User)),
+            OtpOutcome.StoreAccessDenied => CreateTokenResponse(Errors.InvalidGrant, OtpErrorDescriber.StoreAccessDenied()),
             _ => CreateTokenResponse(Errors.InvalidGrant, OtpErrorDescriber.InvalidCode()),
         };
-    }
-
-    private static IdentityError GetLockoutError(ApplicationUser user)
-    {
-        return user.LockoutEnd == DateTime.MaxValue.ToUniversalTime()
-            ? OtpErrorDescriber.UserIsLockedOut()
-            : OtpErrorDescriber.UserIsTemporaryLockedOut();
-    }
-
-    private static int? GetLockoutSecondsRemaining(ApplicationUser user)
-    {
-        if (user.LockoutEnd is null)
-        {
-            return null;
-        }
-
-        var seconds = Math.Ceiling((user.LockoutEnd.Value - DateTimeOffset.UtcNow).TotalSeconds);
-
-        return (int)Math.Clamp(seconds, 0, int.MaxValue);
     }
 
     private static TokenResponse CreateTokenResponse(string error, IdentityError identityError, int? lockoutSecondsRemaining = null)

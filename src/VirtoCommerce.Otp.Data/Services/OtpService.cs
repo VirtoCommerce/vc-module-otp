@@ -27,70 +27,74 @@ public class OtpService(
     INotificationSender notificationSender)
     : IOtpService
 {
-    public async Task<OtpRequestOutcome> RequestCodeAsync(string storeId, string email)
+    public async Task<OtpResult> RequestCodeAsync(string storeId, string email)
     {
         ArgumentException.ThrowIfNullOrEmpty(storeId);
         ArgumentException.ThrowIfNullOrEmpty(email);
 
-        var store = await storeService.GetNoCloneAsync(storeId);
-        if (store == null)
+        var result = await ValidateUserAsync(storeId, email);
+        if (result.Outcome != OtpOutcome.Success)
         {
-            return OtpRequestOutcome.StoreNotFound;
+            return result;
         }
 
-        if (!IsOtpSignInEnabled(store))
-        {
-            return OtpRequestOutcome.OtpDisabled;
-        }
-
-        ApplicationUser user;
-
-        try
-        {
-            user = await userManager.FindByEmailAsync(email);
-        }
-        catch (DuplicateEmailException)
-        {
-            return OtpRequestOutcome.DuplicateEmail;
-        }
-
-        if (user == null)
-        {
-            return OtpRequestOutcome.UserNotFound;
-        }
-
-        if (!await userManager.GetLockoutEnabledAsync(user))
-        {
-            return OtpRequestOutcome.LockoutDisabled;
-        }
+        var store = result.Store;
+        var user = result.User;
 
         if (!await CanSignInToStoreAsync(user, store))
         {
-            return OtpRequestOutcome.StoreAccessDenied;
+            return OtpResult.Fail(OtpOutcome.StoreAccessDenied, store, user);
         }
 
         var code = await userManager.GenerateUserTokenAsync(user, TokenOptions.DefaultEmailProvider, ModuleConstants.Security.TokenPurpose);
-
         await SendCodeNotificationAsync(store, user, email, code);
 
-        return OtpRequestOutcome.CodeSent;
+        return OtpResult.Succeed(store, user);
     }
 
-    public async Task<OtpVerifyResult> VerifyCodeAsync(string storeId, string email, string code)
+    public async Task<OtpResult> VerifyCodeAsync(string storeId, string email, string code)
     {
         ArgumentException.ThrowIfNullOrEmpty(storeId);
         ArgumentException.ThrowIfNullOrEmpty(email);
         ArgumentException.ThrowIfNullOrEmpty(code);
 
+        var result = await ValidateUserAsync(storeId, email);
+        if (result.Outcome != OtpOutcome.Success)
+        {
+            return result;
+        }
+
+        var store = result.Store;
+        var user = result.User;
+
+        var isValid = await userManager.VerifyUserTokenAsync(user, TokenOptions.DefaultEmailProvider, ModuleConstants.Security.TokenPurpose, code);
+        if (!isValid)
+        {
+            await userManager.AccessFailedAsync(user);
+            return OtpResult.Fail(OtpOutcome.InvalidCode, store, user);
+        }
+
+        if (!await CanSignInToStoreAsync(user, store))
+        {
+            return OtpResult.Fail(OtpOutcome.StoreAccessDenied, store, user);
+        }
+
+        await userManager.ResetAccessFailedCountAsync(user);
+
+        return OtpResult.Succeed(store, user);
+    }
+
+    private async Task<OtpResult> ValidateUserAsync(string storeId, string email)
+    {
         var store = await storeService.GetNoCloneAsync(storeId);
         if (store == null)
         {
-            return OtpVerifyResult.Fail(OtpVerifyOutcome.StoreNotFound);
+            return OtpResult.Fail(OtpOutcome.StoreNotFound);
         }
 
         if (!IsOtpSignInEnabled(store))
         {
-            return OtpVerifyResult.Fail(OtpVerifyOutcome.OtpDisabled);
+            return OtpResult.Fail(OtpOutcome.OtpDisabled, store);
         }
 
         ApplicationUser user;
@@ -101,39 +105,25 @@ public class OtpService(
         }
         catch (DuplicateEmailException)
         {
-            return OtpVerifyResult.Fail(OtpVerifyOutcome.DuplicateEmail);
+            return OtpResult.Fail(OtpOutcome.DuplicateEmail, store);
         }
 
         if (user == null)
         {
-            return OtpVerifyResult.Fail(OtpVerifyOutcome.UserNotFound);
+            return OtpResult.Fail(OtpOutcome.UserNotFound, store);
         }
 
         if (!await userManager.GetLockoutEnabledAsync(user))
         {
-            return OtpVerifyResult.Fail(OtpVerifyOutcome.LockoutDisabled, user);
+            return OtpResult.Fail(OtpOutcome.LockoutDisabled, store, user);
         }
 
         if (await userManager.IsLockedOutAsync(user))
         {
-            return OtpVerifyResult.Fail(OtpVerifyOutcome.AccountLocked, user);
+            return OtpResult.Fail(OtpOutcome.AccountLocked, store, user);
         }
 
-        var isValid = await userManager.VerifyUserTokenAsync(user, TokenOptions.DefaultEmailProvider, ModuleConstants.Security.TokenPurpose, code);
-        if (!isValid)
-        {
-            await userManager.AccessFailedAsync(user);
-            return OtpVerifyResult.Fail(OtpVerifyOutcome.InvalidCode, user);
-        }
-
-        if (!await CanSignInToStoreAsync(user, store))
-        {
-            return OtpVerifyResult.Fail(OtpVerifyOutcome.StoreAccessDenied, user);
-        }
-
-        await userManager.ResetAccessFailedCountAsync(user);
-
-        return OtpVerifyResult.Succeed(user);
+        return OtpResult.Succeed(store, user);
     }
 
     protected virtual async Task<bool> CanSignInToStoreAsync(ApplicationUser user, Store store)
@@ -152,11 +142,18 @@ public class OtpService(
     protected virtual async Task SendCodeNotificationAsync(Store store, ApplicationUser user, string email, string code)
     {
         var notification = await notificationSearchService.GetNotificationAsync<OtpSignInEmailNotification>(new TenantIdentity(store.Id, nameof(Store)));
-        var contact = await memberService.GetByIdAsync(user.MemberId) as Contact;
+        var member = await memberService.GetByIdAsync(user.MemberId);
+
+        var memberLanguage = member switch
+        {
+            Contact contact => contact.DefaultLanguage,
+            Employee employee => employee.DefaultLanguage,
+            _ => null,
+        };
 
         notification.To = email;
         notification.Code = code;
-        notification.LanguageCode = contact?.DefaultLanguage ?? store.DefaultLanguage;
+        notification.LanguageCode = memberLanguage ?? store.DefaultLanguage;
 
         await notificationSender.ScheduleSendNotificationAsync(notification);
     }

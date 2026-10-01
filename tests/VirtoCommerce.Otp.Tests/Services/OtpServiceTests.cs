@@ -1,591 +1,156 @@
 using System;
-using System.Collections.Generic;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Identity;
 using Moq;
-using VirtoCommerce.CustomerModule.Core.Model;
-using VirtoCommerce.CustomerModule.Core.Services;
 using VirtoCommerce.NotificationsModule.Core.Model;
-using VirtoCommerce.NotificationsModule.Core.Services;
-using VirtoCommerce.Otp.Core;
 using VirtoCommerce.Otp.Core.Models;
-using VirtoCommerce.Otp.Core.Notifications;
-using VirtoCommerce.Otp.Data.Services;
 using VirtoCommerce.Platform.Core.Security;
-using VirtoCommerce.Platform.Security.Exceptions;
-using VirtoCommerce.StoreModule.Core.Model;
-using VirtoCommerce.StoreModule.Core.Services;
 using Xunit;
-using OtpModuleSettings = VirtoCommerce.Otp.Core.ModuleConstants.Settings.General;
 
 namespace VirtoCommerce.Otp.Tests.Services;
 
 [Trait("Category", "Unit")]
-public class OtpServiceTests
+public class OtpServiceTests : OtpTestsBase
 {
-    private const string _storeId = "test-store";
-    private const string _missingStoreId = "missing-store";
-    private const string _trustedStoreId = "trusted-store";
-    private const string _email = "buyer@acme.com";
-    private const string _contactId = "contact-1";
-    private const string _employeeId = "employee-1";
-    private const string _storeLanguage = "en-US";
-    private const string _contactLanguage = "de-DE";
-
-    [Fact]
-    public async Task RequestCodeAsync_Should_ReturnSent_And_SendNotification_When_UserExists()
+    [Theory]
+    [InlineData(StoreId, TrustedStoreUserEmail, OtpOutcome.Success)]
+    [InlineData(StoreId, AdministratorUserEmail, OtpOutcome.Success)]
+    [InlineData(StoreId, EmployeeUserEmail, OtpOutcome.Success)]
+    [InlineData(UnknownStoreId, ActiveUserEmail, OtpOutcome.StoreNotFound)]
+    [InlineData(OtpDisabledStoreId, ActiveUserEmail, OtpOutcome.OtpDisabled)]
+    [InlineData(StoreId, UnknownEmail, OtpOutcome.UserNotFound)]
+    [InlineData(StoreId, DuplicateEmail, OtpOutcome.DuplicateEmail)]
+    [InlineData(StoreId, LockoutDisabledUserEmail, OtpOutcome.LockoutDisabled)]
+    [InlineData(StoreId, TemporarilyLockedUserEmail, OtpOutcome.AccountLocked)]
+    [InlineData(StoreId, UntrustedStoreUserEmail, OtpOutcome.StoreAccessDenied)]
+    [InlineData(StoreId, NoStoreUserEmail, OtpOutcome.StoreAccessDenied)]
+    public async Task RequestCodeAsync_Should_ReturnExpectedOutcome(string storeId, string email, OtpOutcome expectedOutcome)
     {
-        // Arrange
-        var context = CreateContext();
-        var user = new ApplicationUser { Email = _email, MemberId = _contactId, StoreId = _storeId };
-
-        context.UserManager
-            .Setup(x => x.FindByEmailAsync(_email))
-            .ReturnsAsync(user);
-
-        context.UserManager
-            .Setup(x => x.GenerateUserTokenAsync(user, TokenOptions.DefaultEmailProvider, ModuleConstants.Security.TokenPurpose))
-            .ReturnsAsync("123456");
-
         // Act
-        var outcome = await context.Service.RequestCodeAsync(_storeId, _email);
+        var result = await OtpService.RequestCodeAsync(storeId, email);
 
         // Assert
-        Assert.Equal(OtpRequestOutcome.CodeSent, outcome);
-        context.NotificationSender.Verify(x => x.ScheduleSendNotificationAsync(It.Is<Notification>(n => n.LanguageCode == _contactLanguage)), Times.Once);
+        Assert.Equal(expectedOutcome, result.Outcome);
+        NotificationSender.Verify(x => x.ScheduleSendNotificationAsync(It.IsAny<Notification>()), expectedOutcome == OtpOutcome.Success ? Times.Once() : Times.Never());
     }
 
-    [Fact]
-    public async Task RequestCodeAsync_Should_ReturnSent_When_UserBelongsToATrustedStore()
+    [Theory]
+    [InlineData(ActiveUserEmail, ContactLanguage)]
+    [InlineData(EmployeeUserEmail, EmployeeLanguage)]
+    [InlineData(NoLanguageUserEmail, StoreLanguage)]
+    public async Task RequestCodeAsync_Should_SendTheNotificationInTheExpectedLanguage(string email, string expectedLanguage)
     {
-        // Arrange
-        var context = CreateContext();
-        var user = new ApplicationUser { Email = _email, MemberId = _contactId, StoreId = _trustedStoreId };
-
-        context.UserManager
-            .Setup(x => x.FindByEmailAsync(_email))
-            .ReturnsAsync(user);
-
-        context.UserManager
-            .Setup(x => x.GenerateUserTokenAsync(user, TokenOptions.DefaultEmailProvider, ModuleConstants.Security.TokenPurpose))
-            .ReturnsAsync("123456");
-
         // Act
-        var outcome = await context.Service.RequestCodeAsync(_storeId, _email);
+        await OtpService.RequestCodeAsync(StoreId, email);
 
         // Assert
-        Assert.Equal(OtpRequestOutcome.CodeSent, outcome);
-        context.NotificationSender.Verify(x => x.ScheduleSendNotificationAsync(It.IsAny<Notification>()), Times.Once);
+        NotificationSender.Verify(x => x.ScheduleSendNotificationAsync(It.Is<Notification>(n => n.LanguageCode == expectedLanguage)), Times.Once);
     }
 
-    [Fact]
-    public async Task RequestCodeAsync_Should_ReturnDuplicateEmail_When_EmailBelongsToSeveralUsers()
+    [Theory]
+    [InlineData(UnknownStoreId)]
+    [InlineData(OtpDisabledStoreId)]
+    public async Task RequestCodeAsync_Should_NotLookUpTheUser_When_StoreIsUnavailable(string storeId)
     {
-        // Arrange
-        var context = CreateContext();
-
-        context.UserManager
-            .Setup(x => x.FindByEmailAsync(_email))
-            .ThrowsAsync(new DuplicateEmailException(_email));
-
         // Act
-        var outcome = await context.Service.RequestCodeAsync(_storeId, _email);
+        await OtpService.RequestCodeAsync(storeId, ActiveUserEmail);
 
         // Assert
-        Assert.Equal(OtpRequestOutcome.DuplicateEmail, outcome);
-        context.NotificationSender.Verify(x => x.ScheduleSendNotificationAsync(It.IsAny<Notification>()), Times.Never);
-    }
-
-    [Fact]
-    public async Task VerifyCodeAsync_Should_ReturnDuplicateEmail_When_EmailBelongsToSeveralUsers()
-    {
-        // Arrange
-        var context = CreateContext();
-
-        context.UserManager
-            .Setup(x => x.FindByEmailAsync(_email))
-            .ThrowsAsync(new DuplicateEmailException(_email));
-
-        // Act
-        var result = await context.Service.VerifyCodeAsync(_storeId, _email, "123456");
-
-        // Assert
-        Assert.Equal(OtpVerifyOutcome.DuplicateEmail, result.Outcome);
-    }
-
-    [Fact]
-    public async Task RequestCodeAsync_Should_ReturnLockoutDisabled_When_UserCannotBeLockedOut()
-    {
-        // Arrange
-        var context = CreateContext();
-        var user = new ApplicationUser { Email = _email, MemberId = _contactId, StoreId = _storeId };
-
-        context.UserManager
-            .Setup(x => x.FindByEmailAsync(_email))
-            .ReturnsAsync(user);
-
-        context.UserManager
-            .Setup(x => x.GetLockoutEnabledAsync(user))
-            .ReturnsAsync(false);
-
-        // Act
-        var outcome = await context.Service.RequestCodeAsync(_storeId, _email);
-
-        // Assert
-        Assert.Equal(OtpRequestOutcome.LockoutDisabled, outcome);
-        context.NotificationSender.Verify(x => x.ScheduleSendNotificationAsync(It.IsAny<Notification>()), Times.Never);
-    }
-
-    [Fact]
-    public async Task VerifyCodeAsync_Should_ReturnLockoutDisabled_Without_CheckingTheCode_When_UserCannotBeLockedOut()
-    {
-        // Arrange
-        var context = CreateContext();
-        var user = new ApplicationUser { Email = _email, MemberId = _contactId, StoreId = _storeId };
-
-        context.UserManager
-            .Setup(x => x.FindByEmailAsync(_email))
-            .ReturnsAsync(user);
-
-        context.UserManager
-            .Setup(x => x.GetLockoutEnabledAsync(user))
-            .ReturnsAsync(false);
-
-        // Act
-        var result = await context.Service.VerifyCodeAsync(_storeId, _email, "123456");
-
-        // Assert
-        Assert.Equal(OtpVerifyOutcome.LockoutDisabled, result.Outcome);
-        context.UserManager.Verify(x => x.VerifyUserTokenAsync(It.IsAny<ApplicationUser>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
-    }
-
-    [Fact]
-    public async Task RequestCodeAsync_Should_ReturnStoreAccessDenied_When_UserHasNoStore()
-    {
-        // Arrange
-        var context = CreateContext();
-        var user = new ApplicationUser { Email = _email, MemberId = _contactId };
-
-        context.UserManager
-            .Setup(x => x.FindByEmailAsync(_email))
-            .ReturnsAsync(user);
-
-        // Act
-        var outcome = await context.Service.RequestCodeAsync(_storeId, _email);
-
-        // Assert
-        Assert.Equal(OtpRequestOutcome.StoreAccessDenied, outcome);
-        context.NotificationSender.Verify(x => x.ScheduleSendNotificationAsync(It.IsAny<Notification>()), Times.Never);
-    }
-
-    [Fact]
-    public async Task RequestCodeAsync_Should_ReturnSent_When_AdministratorBelongsToAnotherStore()
-    {
-        // Arrange
-        var context = CreateContext();
-        var user = new ApplicationUser { Email = _email, MemberId = _contactId, StoreId = "other-store", IsAdministrator = true };
-
-        context.UserManager
-            .Setup(x => x.FindByEmailAsync(_email))
-            .ReturnsAsync(user);
-
-        context.UserManager
-            .Setup(x => x.GenerateUserTokenAsync(user, TokenOptions.DefaultEmailProvider, ModuleConstants.Security.TokenPurpose))
-            .ReturnsAsync("123456");
-
-        // Act
-        var outcome = await context.Service.RequestCodeAsync(_storeId, _email);
-
-        // Assert
-        Assert.Equal(OtpRequestOutcome.CodeSent, outcome);
-    }
-
-    [Fact]
-    public async Task RequestCodeAsync_Should_ReturnSent_When_NonContactBelongsToAnotherStore()
-    {
-        // Arrange
-        var context = CreateContext();
-        var user = new ApplicationUser { Email = _email, MemberId = _employeeId, StoreId = "other-store" };
-
-        context.UserManager
-            .Setup(x => x.FindByEmailAsync(_email))
-            .ReturnsAsync(user);
-
-        context.UserManager
-            .Setup(x => x.GenerateUserTokenAsync(user, TokenOptions.DefaultEmailProvider, ModuleConstants.Security.TokenPurpose))
-            .ReturnsAsync("123456");
-
-        // Act
-        var outcome = await context.Service.RequestCodeAsync(_storeId, _email);
-
-        // Assert
-        Assert.Equal(OtpRequestOutcome.CodeSent, outcome);
-        context.NotificationSender.Verify(x => x.ScheduleSendNotificationAsync(It.Is<Notification>(n => n.LanguageCode == _storeLanguage)), Times.Once);
-    }
-
-    [Fact]
-    public async Task RequestCodeAsync_Should_ReturnUserNotFound_When_NoUserForEmail()
-    {
-        // Arrange
-        var context = CreateContext();
-
-        context.UserManager
-            .Setup(x => x.FindByEmailAsync(_email))
-            .ReturnsAsync((ApplicationUser)null);
-
-        // Act
-        var outcome = await context.Service.RequestCodeAsync(_storeId, _email);
-
-        // Assert
-        Assert.Equal(OtpRequestOutcome.UserNotFound, outcome);
-        context.UserManager.Verify(x => x.GenerateUserTokenAsync(It.IsAny<ApplicationUser>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
-        context.NotificationSender.Verify(x => x.ScheduleSendNotificationAsync(It.IsAny<Notification>()), Times.Never);
-    }
-
-    [Fact]
-    public async Task RequestCodeAsync_Should_ReturnDisabled_Without_LookingUpTheUser_When_OtpDisabledForStore()
-    {
-        // Arrange
-        var context = CreateContext(enabled: false);
-
-        // Act
-        var outcome = await context.Service.RequestCodeAsync(_storeId, _email);
-
-        // Assert
-        Assert.Equal(OtpRequestOutcome.OtpDisabled, outcome);
-        context.UserManager.Verify(x => x.FindByEmailAsync(It.IsAny<string>()), Times.Never);
-        context.UserManager.Verify(x => x.GenerateUserTokenAsync(It.IsAny<ApplicationUser>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
-        context.NotificationSender.Verify(x => x.ScheduleSendNotificationAsync(It.IsAny<Notification>()), Times.Never);
-    }
-
-    [Fact]
-    public async Task RequestCodeAsync_Should_ReturnStoreNotFound_Without_LookingUpTheUser_When_StoreDoesNotExist()
-    {
-        // Arrange
-        var context = CreateContext();
-
-        context.StoreService
-            .Setup(x => x.GetAsync(It.Is<IList<string>>(ids => ids.Contains(_missingStoreId)), null, false))
-            .ReturnsAsync([]);
-
-        // Act
-        var outcome = await context.Service.RequestCodeAsync(_missingStoreId, _email);
-
-        // Assert
-        Assert.Equal(OtpRequestOutcome.StoreNotFound, outcome);
-        context.UserManager.Verify(x => x.FindByEmailAsync(It.IsAny<string>()), Times.Never);
-        context.NotificationSender.Verify(x => x.ScheduleSendNotificationAsync(It.IsAny<Notification>()), Times.Never);
-    }
-
-    [Fact]
-    public async Task RequestCodeAsync_Should_ReturnStoreAccessDenied_When_UserBelongsToAnotherStore()
-    {
-        // Arrange
-        var context = CreateContext();
-        var user = new ApplicationUser { Email = _email, MemberId = _contactId, StoreId = "other-store" };
-
-        context.UserManager
-            .Setup(x => x.FindByEmailAsync(_email))
-            .ReturnsAsync(user);
-
-        // Act
-        var outcome = await context.Service.RequestCodeAsync(_storeId, _email);
-
-        // Assert
-        Assert.Equal(OtpRequestOutcome.StoreAccessDenied, outcome);
-        context.UserManager.Verify(x => x.GenerateUserTokenAsync(It.IsAny<ApplicationUser>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
-        context.NotificationSender.Verify(x => x.ScheduleSendNotificationAsync(It.IsAny<Notification>()), Times.Never);
+        UserManager.Verify(x => x.FindByEmailAsync(It.IsAny<string>()), Times.Never);
     }
 
     [Fact]
     public async Task RequestCodeAsync_Should_Throw_When_StoreIdIsEmpty()
     {
-        // Arrange
-        var context = CreateContext();
-
         // Act
-        var action = () => context.Service.RequestCodeAsync(string.Empty, _email);
+        var action = () => OtpService.RequestCodeAsync(string.Empty, ActiveUserEmail);
 
         // Assert
         await Assert.ThrowsAsync<ArgumentException>(action);
-    }
-
-    [Fact]
-    public async Task VerifyCodeAsync_Should_ReturnUserNotFound_When_NoUserForEmail()
-    {
-        // Arrange
-        var context = CreateContext();
-
-        context.UserManager
-            .Setup(x => x.FindByEmailAsync(_email))
-            .ReturnsAsync((ApplicationUser)null);
-
-        // Act
-        var result = await context.Service.VerifyCodeAsync(_storeId, _email, "123456");
-
-        // Assert
-        Assert.Equal(OtpVerifyOutcome.UserNotFound, result.Outcome);
-    }
-
-    [Fact]
-    public async Task VerifyCodeAsync_Should_ReturnStoreAccessDenied_When_CodeIsValid_But_UserBelongsToAnotherStore()
-    {
-        // Arrange
-        var context = CreateContext();
-        var user = new ApplicationUser { Email = _email, MemberId = _contactId, StoreId = "other-store" };
-
-        context.UserManager
-            .Setup(x => x.FindByEmailAsync(_email))
-            .ReturnsAsync(user);
-
-        context.UserManager
-            .Setup(x => x.VerifyUserTokenAsync(user, TokenOptions.DefaultEmailProvider, ModuleConstants.Security.TokenPurpose, "123456"))
-            .ReturnsAsync(true);
-
-        // Act
-        var result = await context.Service.VerifyCodeAsync(_storeId, _email, "123456");
-
-        // Assert
-        Assert.Equal(OtpVerifyOutcome.StoreAccessDenied, result.Outcome);
-        Assert.Same(user, result.User);
-        context.UserManager.Verify(x => x.ResetAccessFailedCountAsync(user), Times.Never);
-    }
-
-    [Fact]
-    public async Task VerifyCodeAsync_Should_ReturnInvalidCode_When_CodeIsWrong_Even_If_UserBelongsToAnotherStore()
-    {
-        // Arrange
-        var context = CreateContext();
-        var user = new ApplicationUser { Email = _email, MemberId = _contactId, StoreId = "other-store" };
-
-        context.UserManager
-            .Setup(x => x.FindByEmailAsync(_email))
-            .ReturnsAsync(user);
-
-        context.UserManager
-            .Setup(x => x.VerifyUserTokenAsync(user, TokenOptions.DefaultEmailProvider, ModuleConstants.Security.TokenPurpose, "000000"))
-            .ReturnsAsync(false);
-
-        // Act
-        var result = await context.Service.VerifyCodeAsync(_storeId, _email, "000000");
-
-        // Assert
-        Assert.Equal(OtpVerifyOutcome.InvalidCode, result.Outcome);
-        context.UserManager.Verify(x => x.AccessFailedAsync(user), Times.Once);
-    }
-
-    [Fact]
-    public async Task VerifyCodeAsync_Should_ReturnDisabled_Without_CheckingTheCode_When_OtpDisabledForStore()
-    {
-        // Arrange
-        var context = CreateContext(enabled: false);
-
-        // Act
-        var result = await context.Service.VerifyCodeAsync(_storeId, _email, "000000");
-
-        // Assert
-        Assert.Equal(OtpVerifyOutcome.OtpDisabled, result.Outcome);
-        context.UserManager.Verify(x => x.FindByEmailAsync(It.IsAny<string>()), Times.Never);
-        context.UserManager.Verify(x => x.VerifyUserTokenAsync(It.IsAny<ApplicationUser>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
-        context.UserManager.Verify(x => x.AccessFailedAsync(It.IsAny<ApplicationUser>()), Times.Never);
-    }
-
-    [Fact]
-    public async Task VerifyCodeAsync_Should_ReturnStoreNotFound_Without_CheckingTheCode_When_StoreDoesNotExist()
-    {
-        // Arrange
-        var context = CreateContext();
-
-        context.StoreService
-            .Setup(x => x.GetAsync(It.Is<IList<string>>(ids => ids.Contains(_missingStoreId)), null, false))
-            .ReturnsAsync([]);
-
-        // Act
-        var result = await context.Service.VerifyCodeAsync(_missingStoreId, _email, "000000");
-
-        // Assert
-        Assert.Equal(OtpVerifyOutcome.StoreNotFound, result.Outcome);
-        context.UserManager.Verify(x => x.FindByEmailAsync(It.IsAny<string>()), Times.Never);
-        context.UserManager.Verify(x => x.VerifyUserTokenAsync(It.IsAny<ApplicationUser>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
     }
 
     [Fact]
     public async Task VerifyCodeAsync_Should_Throw_When_StoreIdIsEmpty()
     {
-        // Arrange
-        var context = CreateContext();
-
         // Act
-        var action = () => context.Service.VerifyCodeAsync(string.Empty, _email, "123456");
+        var action = () => OtpService.VerifyCodeAsync(string.Empty, ActiveUserEmail, ValidCode);
 
         // Assert
         await Assert.ThrowsAsync<ArgumentException>(action);
     }
 
-    [Fact]
-    public async Task VerifyCodeAsync_Should_ReturnLocked_When_AlreadyLockedOut()
+    [Theory]
+    [InlineData(StoreId, ActiveUserEmail, ValidCode, OtpOutcome.Success, ActiveUserId)]
+    [InlineData(UnknownStoreId, ActiveUserEmail, InvalidCode, OtpOutcome.StoreNotFound, null)]
+    [InlineData(OtpDisabledStoreId, ActiveUserEmail, InvalidCode, OtpOutcome.OtpDisabled, null)]
+    [InlineData(StoreId, UnknownEmail, ValidCode, OtpOutcome.UserNotFound, null)]
+    [InlineData(StoreId, DuplicateEmail, ValidCode, OtpOutcome.DuplicateEmail, null)]
+    [InlineData(StoreId, UntrustedStoreUserEmail, ValidCode, OtpOutcome.StoreAccessDenied, UntrustedStoreUserId)]
+    public async Task VerifyCodeAsync_Should_ReturnExpectedOutcome(string storeId, string email, string code, OtpOutcome expectedOutcome, string expectedUserId)
     {
-        // Arrange
-        var context = CreateContext();
-        var user = new ApplicationUser { Email = _email, MemberId = _contactId, StoreId = _storeId };
-
-        context.UserManager
-            .Setup(x => x.FindByEmailAsync(_email))
-            .ReturnsAsync(user);
-
-        context.UserManager
-            .Setup(x => x.IsLockedOutAsync(user))
-            .ReturnsAsync(true);
-
         // Act
-        var result = await context.Service.VerifyCodeAsync(_storeId, _email, "123456");
+        var result = await OtpService.VerifyCodeAsync(storeId, email, code);
 
         // Assert
-        Assert.Equal(OtpVerifyOutcome.AccountLocked, result.Outcome);
-        Assert.Same(user, result.User);
-        context.UserManager.Verify(x => x.VerifyUserTokenAsync(It.IsAny<ApplicationUser>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+        Assert.Equal(expectedOutcome, result.Outcome);
+        Assert.Equal(expectedUserId, result.User?.Id);
+        UserManager.Verify(x => x.ResetAccessFailedCountAsync(It.IsAny<ApplicationUser>()), expectedOutcome == OtpOutcome.Success ? Times.Once() : Times.Never());
     }
 
-    [Fact]
-    public async Task VerifyCodeAsync_Should_ReturnInvalidCode_And_RegisterFailedAttempt_When_CodeDoesNotMatch()
+    [Theory]
+    [InlineData(UnknownStoreId)]
+    [InlineData(OtpDisabledStoreId)]
+    public async Task VerifyCodeAsync_Should_NotLookUpTheUser_When_StoreIsUnavailable(string storeId)
     {
-        // Arrange
-        var context = CreateContext();
-        var user = new ApplicationUser { Email = _email, MemberId = _contactId, StoreId = _storeId };
-
-        context.UserManager
-            .Setup(x => x.FindByEmailAsync(_email))
-            .ReturnsAsync(user);
-
-        context.UserManager
-            .Setup(x => x.IsLockedOutAsync(user))
-            .ReturnsAsync(false);
-
-        context.UserManager
-            .Setup(x => x.VerifyUserTokenAsync(user, TokenOptions.DefaultEmailProvider, ModuleConstants.Security.TokenPurpose, "000000"))
-            .ReturnsAsync(false);
-
         // Act
-        var result = await context.Service.VerifyCodeAsync(_storeId, _email, "000000");
+        await OtpService.VerifyCodeAsync(storeId, ActiveUserEmail, InvalidCode);
 
         // Assert
-        Assert.Equal(OtpVerifyOutcome.InvalidCode, result.Outcome);
-        Assert.Same(user, result.User);
-        context.UserManager.Verify(x => x.AccessFailedAsync(user), Times.Once);
+        UserManager.Verify(x => x.FindByEmailAsync(It.IsAny<string>()), Times.Never);
+    }
+
+    [Theory]
+    [InlineData(LockoutDisabledUserEmail, OtpOutcome.LockoutDisabled)]
+    [InlineData(TemporarilyLockedUserEmail, OtpOutcome.AccountLocked)]
+    [InlineData(PermanentlyLockedUserEmail, OtpOutcome.AccountLocked)]
+    public async Task VerifyCodeAsync_Should_NotCheckTheCode_When_UserIsRejectedBeforehand(string email, OtpOutcome expectedOutcome)
+    {
+        // Act
+        var result = await OtpService.VerifyCodeAsync(StoreId, email, ValidCode);
+
+        // Assert
+        Assert.Equal(expectedOutcome, result.Outcome);
+        Assert.Equal(email, result.User.Email);
+        UserManager.Verify(x => x.VerifyUserTokenAsync(It.IsAny<ApplicationUser>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+    }
+
+    [Theory]
+    [InlineData(ActiveUserEmail, ActiveUserId)]
+    [InlineData(UntrustedStoreUserEmail, UntrustedStoreUserId)]
+    public async Task VerifyCodeAsync_Should_RegisterAFailedAttempt_When_CodeIsWrong(string email, string expectedUserId)
+    {
+        // Act
+        var result = await OtpService.VerifyCodeAsync(StoreId, email, InvalidCode);
+
+        // Assert
+        Assert.Equal(OtpOutcome.InvalidCode, result.Outcome);
+        Assert.Equal(expectedUserId, result.User.Id);
+        UserManager.Verify(x => x.AccessFailedAsync(It.Is<ApplicationUser>(u => u.Id == expectedUserId)), Times.Once);
     }
 
     [Fact]
     public async Task VerifyCodeAsync_Should_ReturnInvalidCode_When_FailedAttemptCrossesTheThreshold()
     {
         // Arrange
-        var context = CreateContext();
-        var user = new ApplicationUser { Email = _email, MemberId = _contactId, StoreId = _storeId };
-
-        context.UserManager
-            .SetupSequence(x => x.IsLockedOutAsync(user))
+        UserManager
+            .SetupSequence(x => x.IsLockedOutAsync(ActiveUser))
             .ReturnsAsync(false)
             .ReturnsAsync(true);
 
-        context.UserManager
-            .Setup(x => x.FindByEmailAsync(_email))
-            .ReturnsAsync(user);
-
-        context.UserManager
-            .Setup(x => x.VerifyUserTokenAsync(user, TokenOptions.DefaultEmailProvider, ModuleConstants.Security.TokenPurpose, "000000"))
-            .ReturnsAsync(false);
-
         // Act
-        var result = await context.Service.VerifyCodeAsync(_storeId, _email, "000000");
+        var result = await OtpService.VerifyCodeAsync(StoreId, ActiveUserEmail, InvalidCode);
 
         // Assert
-        Assert.Equal(OtpVerifyOutcome.InvalidCode, result.Outcome);
-        context.UserManager.Verify(x => x.AccessFailedAsync(user), Times.Once);
+        Assert.Equal(OtpOutcome.InvalidCode, result.Outcome);
+        UserManager.Verify(x => x.AccessFailedAsync(ActiveUser), Times.Once);
     }
-
-    [Fact]
-    public async Task VerifyCodeAsync_Should_ReturnSuccess_And_ResetFailedCount_When_CodeMatches()
-    {
-        // Arrange
-        var context = CreateContext();
-        var user = new ApplicationUser { Email = _email, MemberId = _contactId, StoreId = _storeId };
-
-        context.UserManager
-            .Setup(x => x.FindByEmailAsync(_email))
-            .ReturnsAsync(user);
-
-        context.UserManager
-            .Setup(x => x.IsLockedOutAsync(user))
-            .ReturnsAsync(false);
-
-        context.UserManager
-            .Setup(x => x.VerifyUserTokenAsync(user, TokenOptions.DefaultEmailProvider, ModuleConstants.Security.TokenPurpose, "654321"))
-            .ReturnsAsync(true);
-
-        // Act
-        var result = await context.Service.VerifyCodeAsync(_storeId, _email, "654321");
-
-        // Assert
-        Assert.Equal(OtpVerifyOutcome.Success, result.Outcome);
-        context.UserManager.Verify(x => x.ResetAccessFailedCountAsync(user), Times.Once);
-    }
-
-    private static TestContext CreateContext(bool enabled = true)
-    {
-        var store = new Store
-        {
-            Id = _storeId,
-            DefaultLanguage = _storeLanguage,
-            TrustedGroups = [_trustedStoreId],
-            Settings =
-            [
-                new() { Name = OtpModuleSettings.OtpSignInEnabled.Name, Value = enabled },
-            ],
-        };
-
-        var storeService = new Mock<IStoreService>();
-
-        storeService
-            .Setup(x => x.GetAsync(It.Is<IList<string>>(ids => ids.Contains(_storeId)), null, false))
-            .ReturnsAsync([store]);
-
-        var memberService = new Mock<IMemberService>();
-
-        memberService
-            .Setup(x => x.GetByIdAsync(_contactId, null, null))
-            .ReturnsAsync(new Contact { Id = _contactId, DefaultLanguage = _contactLanguage });
-
-        memberService
-            .Setup(x => x.GetByIdAsync(_employeeId, null, null))
-            .ReturnsAsync(new Employee { Id = _employeeId });
-
-        var userStore = new Mock<IUserStore<ApplicationUser>>();
-        var userManager = new Mock<UserManager<ApplicationUser>>(userStore.Object, null, null, null, null, null, null, null, null);
-
-        userManager
-            .Setup(x => x.GetLockoutEnabledAsync(It.IsAny<ApplicationUser>()))
-            .ReturnsAsync(true);
-
-        var notificationSearchService = new Mock<INotificationSearchService>();
-
-        notificationSearchService
-            .Setup(x => x.SearchNotificationsAsync(It.IsAny<NotificationSearchCriteria>()))
-            .ReturnsAsync(new NotificationSearchResult { Results = [new OtpSignInEmailNotification()] });
-
-        var notificationSender = new Mock<INotificationSender>();
-
-        var service = new OtpService(
-            userManager.Object,
-            storeService.Object,
-            memberService.Object,
-            notificationSearchService.Object,
-            notificationSender.Object);
-
-        return new TestContext(service, userManager, storeService, notificationSender);
-    }
-
-    private sealed record TestContext(
-        OtpService Service,
-        Mock<UserManager<ApplicationUser>> UserManager,
-        Mock<IStoreService> StoreService,
-        Mock<INotificationSender> NotificationSender);
 }

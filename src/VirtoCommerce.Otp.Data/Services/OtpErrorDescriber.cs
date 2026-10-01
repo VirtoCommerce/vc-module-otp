@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
 using Microsoft.AspNetCore.Identity;
+using VirtoCommerce.Platform.Core.Security;
 using VirtoCommerce.Platform.Security.OpenIddict;
 
 namespace VirtoCommerce.Otp.Data.Services;
@@ -43,6 +45,25 @@ public static class OtpErrorDescriber
     public static IdentityError UserIsLockedOut() => ToIdentityError(SecurityErrorDescriber.UserIsLockedOut());
 
     public static IdentityError UserIsTemporaryLockedOut() => ToIdentityError(SecurityErrorDescriber.UserIsTemporaryLockedOut());
+
+    public static IdentityError GetLockoutError(ApplicationUser user)
+    {
+        return user.LockoutEnd == DateTime.MaxValue.ToUniversalTime()
+            ? UserIsLockedOut()
+            : UserIsTemporaryLockedOut();
+    }
+
+    public static int? GetLockoutSecondsRemaining(ApplicationUser user)
+    {
+        if (user.LockoutEnd is null)
+        {
+            return null;
+        }
+
+        var seconds = Math.Ceiling((user.LockoutEnd.Value - DateTimeOffset.UtcNow).TotalSeconds);
+
+        return (int)Math.Clamp(seconds, 0, int.MaxValue);
+    }
 
     public static IdentityError StoreAccessDenied() => new()
     {

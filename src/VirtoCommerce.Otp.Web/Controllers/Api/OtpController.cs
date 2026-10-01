@@ -25,15 +25,18 @@ public class OtpController(
     public async Task<ActionResult<OtpRequestResult>> RequestCode([FromBody] OtpRequest request)
     {
         var delayedResponse = DelayedResponse.Create(nameof(OtpController), nameof(RequestCode));
-        var outcome = await otpService.RequestCodeAsync(request.StoreId, request.Email);
+        var codeRequestResult = await otpService.RequestCodeAsync(request.StoreId, request.Email);
+        var detailedErrors = _passwordLoginOptions.DetailedErrors;
+        var isLockoutReported = detailedErrors && codeRequestResult.Outcome == OtpOutcome.AccountLocked;
 
         var result = new OtpRequestResult
         {
-            Error = GetError(outcome, _passwordLoginOptions.DetailedErrors),
+            Error = GetError(codeRequestResult, detailedErrors),
             MaskedEmail = MaskEmail(request.Email),
+            LockoutSecondsRemaining = isLockoutReported ? OtpErrorDescriber.GetLockoutSecondsRemaining(codeRequestResult.User) : null,
         };
 
-        if (outcome == OtpRequestOutcome.CodeSent)
+        if (codeRequestResult.Outcome == OtpOutcome.Success)
         {
             await delayedResponse.SucceedAsync();
         }
@@ -45,22 +48,24 @@ public class OtpController(
         return Ok(result);
     }
 
-    private static IdentityError GetError(OtpRequestOutcome outcome, bool detailedErrors)
+    private static IdentityError GetError(OtpResult codeRequestResult, bool detailedErrors)
     {
         // Outcomes that reveal whether the user exists are reported only when detailed errors are enabled.
-        return outcome switch
+        return codeRequestResult.Outcome switch
         {
-            OtpRequestOutcome.CodeSent => null,
-            OtpRequestOutcome.StoreNotFound => OtpErrorDescriber.StoreNotFound(),
-            OtpRequestOutcome.OtpDisabled => OtpErrorDescriber.OtpDisabled(),
-            OtpRequestOutcome.UserNotFound when detailedErrors => OtpErrorDescriber.UserNotFound(),
-            OtpRequestOutcome.UserNotFound => null,
-            OtpRequestOutcome.DuplicateEmail when detailedErrors => OtpErrorDescriber.DuplicateEmail(),
-            OtpRequestOutcome.DuplicateEmail => null,
-            OtpRequestOutcome.LockoutDisabled when detailedErrors => OtpErrorDescriber.LockoutDisabled(),
-            OtpRequestOutcome.LockoutDisabled => null,
-            OtpRequestOutcome.StoreAccessDenied when detailedErrors => OtpErrorDescriber.StoreAccessDenied(),
-            OtpRequestOutcome.StoreAccessDenied => null,
+            OtpOutcome.Success => null,
+            OtpOutcome.StoreNotFound => OtpErrorDescriber.StoreNotFound(),
+            OtpOutcome.OtpDisabled => OtpErrorDescriber.OtpDisabled(),
+            OtpOutcome.UserNotFound when detailedErrors => OtpErrorDescriber.UserNotFound(),
+            OtpOutcome.UserNotFound => null,
+            OtpOutcome.DuplicateEmail when detailedErrors => OtpErrorDescriber.DuplicateEmail(),
+            OtpOutcome.DuplicateEmail => null,
+            OtpOutcome.LockoutDisabled when detailedErrors => OtpErrorDescriber.LockoutDisabled(),
+            OtpOutcome.LockoutDisabled => null,
+            OtpOutcome.AccountLocked when detailedErrors => OtpErrorDescriber.GetLockoutError(codeRequestResult.User),
+            OtpOutcome.AccountLocked => null,
+            OtpOutcome.StoreAccessDenied when detailedErrors => OtpErrorDescriber.StoreAccessDenied(),
+            OtpOutcome.StoreAccessDenied => null,
             _ => OtpErrorDescriber.LoginFailed(),
         };
     }

@@ -1,9 +1,7 @@
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
-using Moq;
 using VirtoCommerce.Otp.Core.Models;
-using VirtoCommerce.Otp.Core.Services;
 using VirtoCommerce.Otp.Web.Controllers.Api;
 using VirtoCommerce.Platform.Core.Security;
 using Xunit;
@@ -11,49 +9,76 @@ using Xunit;
 namespace VirtoCommerce.Otp.Tests.Controllers;
 
 [Trait("Category", "Unit")]
-public class OtpControllerTests
+public class OtpControllerTests : OtpTestsBase
 {
-    private const string _email = "buyer@acme.com";
-    private const string _storeId = "store-1";
-
     [Theory]
-    [InlineData(OtpRequestOutcome.CodeSent, false, null)]
-    [InlineData(OtpRequestOutcome.StoreNotFound, true, "store_not_found")]
-    [InlineData(OtpRequestOutcome.StoreNotFound, false, "store_not_found")]
-    [InlineData(OtpRequestOutcome.OtpDisabled, true, "otp_disabled")]
-    [InlineData(OtpRequestOutcome.OtpDisabled, false, "otp_disabled")]
-    [InlineData(OtpRequestOutcome.UserNotFound, true, "user_not_found")]
-    [InlineData(OtpRequestOutcome.UserNotFound, false, null)]
-    [InlineData(OtpRequestOutcome.DuplicateEmail, true, "duplicate_email_login_attempt")]
-    [InlineData(OtpRequestOutcome.DuplicateEmail, false, null)]
-    [InlineData(OtpRequestOutcome.LockoutDisabled, true, "lockout_disabled")]
-    [InlineData(OtpRequestOutcome.LockoutDisabled, false, null)]
-    [InlineData(OtpRequestOutcome.StoreAccessDenied, true, "user_cannot_login_in_store")]
-    [InlineData(OtpRequestOutcome.StoreAccessDenied, false, null)]
-    public async Task RequestCode_Should_ReturnExpectedResult(OtpRequestOutcome serviceOutcome, bool detailedErrors, string expectedErrorCode)
+    [InlineData(StoreId, ActiveUserEmail, false, null)]
+    [InlineData(UnknownStoreId, ActiveUserEmail, true, "store_not_found")]
+    [InlineData(UnknownStoreId, ActiveUserEmail, false, "store_not_found")]
+    [InlineData(OtpDisabledStoreId, ActiveUserEmail, true, "otp_disabled")]
+    [InlineData(OtpDisabledStoreId, ActiveUserEmail, false, "otp_disabled")]
+    [InlineData(StoreId, UnknownEmail, true, "user_not_found")]
+    [InlineData(StoreId, UnknownEmail, false, null)]
+    [InlineData(StoreId, DuplicateEmail, true, "duplicate_email_login_attempt")]
+    [InlineData(StoreId, DuplicateEmail, false, null)]
+    [InlineData(StoreId, LockoutDisabledUserEmail, true, "lockout_disabled")]
+    [InlineData(StoreId, LockoutDisabledUserEmail, false, null)]
+    [InlineData(StoreId, TemporarilyLockedUserEmail, true, "user_is_temporary_locked_out")]
+    [InlineData(StoreId, TemporarilyLockedUserEmail, false, null)]
+    [InlineData(StoreId, PermanentlyLockedUserEmail, true, "user_is_locked_out")]
+    [InlineData(StoreId, PermanentlyLockedUserEmail, false, null)]
+    [InlineData(StoreId, UntrustedStoreUserEmail, true, "user_cannot_login_in_store")]
+    [InlineData(StoreId, UntrustedStoreUserEmail, false, null)]
+    public async Task RequestCode_Should_ReturnExpectedResult(string storeId, string email, bool detailedErrors, string expectedErrorCode)
     {
         // Arrange
-        var controller = CreateController(detailedErrors, out var otpService);
-
-        otpService
-            .Setup(x => x.RequestCodeAsync(_storeId, _email))
-            .ReturnsAsync(serviceOutcome);
+        var controller = CreateController(detailedErrors);
 
         // Act
-        var actionResult = await controller.RequestCode(new OtpRequest { Email = _email, StoreId = _storeId });
+        var actionResult = await controller.RequestCode(new OtpRequest { Email = email, StoreId = storeId });
 
         // Assert
         var result = Assert.IsType<OtpRequestResult>(Assert.IsType<OkObjectResult>(actionResult.Result).Value);
         Assert.Equal(expectedErrorCode is null, result.Succeeded);
         Assert.Equal(expectedErrorCode, result.Error?.Code);
-        Assert.Equal("b•••r@acme.com", result.MaskedEmail);
     }
 
-    private static OtpController CreateController(bool detailedErrors, out Mock<IOtpService> otpService)
+    [Theory]
+    [InlineData(TemporarilyLockedUserEmail, true, LockoutSeconds)]
+    [InlineData(TemporarilyLockedUserEmail, false, null)]
+    [InlineData(PermanentlyLockedUserEmail, true, int.MaxValue)]
+    [InlineData(PermanentlyLockedUserEmail, false, null)]
+    public async Task RequestCode_Should_ReportLockoutSeconds_Like_TheTokenEndpoint(string email, bool detailedErrors, int? expectedSecondsRemaining)
     {
-        otpService = new Mock<IOtpService>();
+        // Arrange
+        var controller = CreateController(detailedErrors);
+
+        // Act
+        var actionResult = await controller.RequestCode(new OtpRequest { Email = email, StoreId = StoreId });
+
+        // Assert
+        var result = Assert.IsType<OtpRequestResult>(Assert.IsType<OkObjectResult>(actionResult.Result).Value);
+        Assert.Equal(expectedSecondsRemaining, result.LockoutSecondsRemaining);
+    }
+
+    [Fact]
+    public async Task RequestCode_Should_ReturnTheMaskedEmail()
+    {
+        // Arrange
+        var controller = CreateController(detailedErrors: false);
+
+        // Act
+        var actionResult = await controller.RequestCode(new OtpRequest { Email = ActiveUserEmail, StoreId = StoreId });
+
+        // Assert
+        var result = Assert.IsType<OtpRequestResult>(Assert.IsType<OkObjectResult>(actionResult.Result).Value);
+        Assert.Equal("a•••e@acme.com", result.MaskedEmail);
+    }
+
+    private OtpController CreateController(bool detailedErrors)
+    {
         var passwordLoginOptions = Options.Create(new PasswordLoginOptions { DetailedErrors = detailedErrors });
 
-        return new OtpController(otpService.Object, passwordLoginOptions);
+        return new OtpController(OtpService, passwordLoginOptions);
     }
 }

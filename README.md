@@ -15,7 +15,7 @@ Codes are generated and verified by the ASP.NET Core Identity `"Email"` token pr
 
 * OTP sign-in works only in stores where it is enabled.
 * A contact can sign in only to its own store or to a store whose trusted groups include it. Administrators and accounts that are not contacts can sign in to any store.
-* Wrong codes count toward the platform account lockout. Accounts with lockout disabled can't use OTP sign-in.
+* Wrong codes count toward the platform account lockout. A locked account isn't sent a code. Accounts with lockout disabled can't use OTP sign-in.
 * Responses that reveal whether an account exists are returned only when `PasswordLogin:DetailedErrors` is enabled. `POST /api/otp/request` reports them as a sent code, `POST /connect/token` as `invalid_code`. The sign-in log always records the real reason.
 * Code requests are not rate-limited.
 * Any change of the user's security stamp, for example a logout in another session, invalidates the codes already sent.
