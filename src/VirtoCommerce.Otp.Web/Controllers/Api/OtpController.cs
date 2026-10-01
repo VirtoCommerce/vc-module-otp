@@ -70,7 +70,7 @@ public class OtpController(
         };
     }
 
-    protected virtual string MaskEmail(string email)
+    private static string MaskEmail(string email)
     {
         var atIndex = email.IndexOf('@');
         if (atIndex <= 1)
