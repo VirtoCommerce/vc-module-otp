@@ -27,7 +27,7 @@ public class OtpService(
     INotificationSender notificationSender)
     : IOtpService
 {
-    public async Task<OtpResult> RequestCodeAsync(string storeId, string email)
+    public virtual async Task<OtpResult> RequestCodeAsync(string storeId, string email)
     {
         ArgumentException.ThrowIfNullOrEmpty(storeId);
         ArgumentException.ThrowIfNullOrEmpty(email);
@@ -52,7 +52,7 @@ public class OtpService(
         return OtpResult.Succeed(store, user);
     }
 
-    public async Task<OtpResult> VerifyCodeAsync(string storeId, string email, string code)
+    public virtual async Task<OtpResult> VerifyCodeAsync(string storeId, string email, string code)
     {
         ArgumentException.ThrowIfNullOrEmpty(storeId);
         ArgumentException.ThrowIfNullOrEmpty(email);
@@ -84,7 +84,7 @@ public class OtpService(
         return OtpResult.Succeed(store, user);
     }
 
-    private async Task<OtpResult> ValidateUserAsync(string storeId, string email)
+    protected virtual async Task<OtpResult> ValidateUserAsync(string storeId, string email)
     {
         var store = await storeService.GetNoCloneAsync(storeId);
         if (store == null)

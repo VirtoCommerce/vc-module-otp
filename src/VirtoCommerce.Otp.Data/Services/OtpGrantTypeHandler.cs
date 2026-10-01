@@ -60,7 +60,7 @@ public class OtpGrantTypeHandler(
         return result;
     }
 
-    private static string GetRequiredParameter(OpenIddictRequest request, string name, List<string> missingParameters)
+    protected virtual string GetRequiredParameter(OpenIddictRequest request, string name, List<string> missingParameters)
     {
         var value = (string)request.GetParameter(name);
         if (string.IsNullOrEmpty(value))
@@ -71,7 +71,7 @@ public class OtpGrantTypeHandler(
         return value;
     }
 
-    private static SignInResult GetSignInResult(OtpOutcome outcome)
+    protected virtual SignInResult GetSignInResult(OtpOutcome outcome)
     {
         return outcome switch
         {
@@ -81,14 +81,14 @@ public class OtpGrantTypeHandler(
         };
     }
 
-    private static TokenResponse BuildErrorResponse(TokenRequestContext context, List<string> missingParameters)
+    protected virtual TokenResponse BuildErrorResponse(TokenRequestContext context, List<string> missingParameters)
     {
         context.FailureReason = ModuleConstants.Security.FailureReason.MissingParameter;
 
         return CreateTokenResponse(Errors.InvalidRequest, OtpErrorDescriber.MissingParameters(missingParameters));
     }
 
-    private static TokenResponse BuildErrorResponse(TokenRequestContext context, OtpResult verifyResult)
+    protected virtual TokenResponse BuildErrorResponse(TokenRequestContext context, OtpResult verifyResult)
     {
         // The sign-in log always gets the real reason.
         context.FailureReason = verifyResult.Outcome switch
@@ -118,7 +118,7 @@ public class OtpGrantTypeHandler(
         };
     }
 
-    private static TokenResponse CreateTokenResponse(string error, IdentityError identityError, int? lockoutSecondsRemaining = null)
+    protected virtual TokenResponse CreateTokenResponse(string error, IdentityError identityError, int? lockoutSecondsRemaining = null)
     {
         return new TokenResponse
         {
