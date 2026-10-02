@@ -1,46 +1,37 @@
-# Otp
+# Virto Commerce OTP Sign-In Module
 
 ## Overview
 
-Short overview of what the new module is.
+The module lets storefront customers sign in with a one-time code sent to their email instead of a password. It signs in existing users only and does not create accounts.
 
-- What is the new or updated experience?
+## How it works
 
-- Does this module replace an existing module/experience? If yes, what is the transition plan?
+1. The storefront requests a code with `POST /api/otp/request` (`storeId`, `email`). The code is sent by the `OtpSignInEmailNotification` notification in the contact's default language or the store's default language.
+2. The storefront exchanges the code for tokens with `POST /connect/token` (`grant_type=otp_email`, `storeId`, `email`, `code`).
 
-- Does this module has dependency on other ? If yes, list/explain the dependencies.
+Codes are generated and verified by the ASP.NET Core Identity `"Email"` token provider, which also defines their length and lifetime. The module stores nothing.
 
-- List the key deployment scenarios - why would people use this module?
+## Rules
 
-## Functional Requirements
+* OTP sign-in works only in stores where it is enabled.
+* A contact can sign in only to its own store or to a store whose trusted groups include it. Administrators and accounts that are not contacts can sign in to any store.
+* Wrong codes count toward the platform account lockout. A locked account isn't sent a code. Accounts with lockout disabled can't use OTP sign-in.
+* Responses that reveal whether an account exists are returned only when `PasswordLogin:DetailedErrors` is enabled. `POST /api/otp/request` reports them as a sent code, `POST /connect/token` as `invalid_code`. The sign-in log always records the real reason.
+* Code requests are not rate-limited.
+* Any change of the user's security stamp, for example a logout in another session, invalidates the codes already sent.
 
-Short description of the new module functional requirements.
+## Configuration
 
-## Scenarios
+| Store setting | Description | Default |
+| --- | --- | --- |
+| `OtpSignIn.Enabled` | Enables OTP sign-in for the store. | `false` |
 
-List of scenarios that the new module implements
+## References
 
-1. [Scenario 1](/doc/scenario-name1.md)
-1. [Scenario 2](/doc/scenario-name2.md)
-1. [Scenario 3](/doc/scenario-name3.md)
-    1. [Scenario 3.1](/doc/scenario-name31.md)
-    1. [Scenario 3.2](/doc/scenario-name32.md)
-1. [Scenario 4](/doc/scenario-name4.md)
-
-## Web API
-
-Web API documentation for each module is built out automatically and can be accessed by following the link bellow:
-<https://link-to-swager-api>
-
-## Database Model
-
-![DB model](./docs/media/diagram-db-model.png)
-
-## Related topics
-
-[Some Article1](some-article1.md)
-
-[Some Article2](some-article2.md)
+* [Deployment](https://docs.virtocommerce.org/platform/developer-guide/Tutorials-and-How-tos/Tutorials/deploy-module-from-source-code/)
+* [Installation](https://docs.virtocommerce.org/platform/user-guide/modules-installation/)
+* [Home](https://virtocommerce.com)
+* [Community](https://www.virtocommerce.org)
 
 ## License
 
