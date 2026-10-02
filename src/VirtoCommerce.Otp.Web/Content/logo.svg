@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="OTP Sign-In">
+  <title>OTP Sign-In</title>
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="92%" y2="100%">
+      <stop offset="0%" stop-color="#6E7E97"/>
+      <stop offset="100%" stop-color="#3E4C63"/>
+    </linearGradient>
+    <filter id="lift" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="3" stdDeviation="3.5" flood-color="#10161F" flood-opacity="0.30"/>
+    </filter>
+    <g id="ast">
+      <line x1="0" y1="-6" x2="0" y2="6"/>
+      <line x1="-5.2" y1="-3" x2="5.2" y2="3"/>
+      <line x1="-5.2" y1="3" x2="5.2" y2="-3"/>
+    </g>
+  </defs>
+
+  <rect width="128" height="128" rx="28" fill="url(#bg)"/>
+
+  <!-- Glyph: padlock carrying a one-time passcode -->
+  <g transform="translate(64,64)" filter="url(#lift)">
+    <!-- Shackle -->
+    <path d="M-20,-6 V-20 A20,20 0 0 1 20,-20 V-6" fill="none" stroke="#FFFFFF" stroke-width="9" stroke-linecap="round"/>
+    <!-- Body -->
+    <rect x="-38" y="-10" width="76" height="52" rx="12" fill="#FFC24D"/>
+    <!-- Passcode **** -->
+    <g stroke="#3E4C63" stroke-width="4" stroke-linecap="round">
+      <use href="#ast" x="-25.5" y="16"/>
+      <use href="#ast" x="-8.5" y="16"/>
+      <use href="#ast" x="8.5" y="16"/>
+      <use href="#ast" x="25.5" y="16"/>
+    </g>
+  </g>
+</svg>
