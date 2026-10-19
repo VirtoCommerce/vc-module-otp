@@ -26,6 +26,8 @@ Codes are generated and verified by the ASP.NET Core Identity `"Email"` token pr
 | --- | --- | --- |
 | `OtpSignIn.Enabled` | Enables OTP sign-in for the store. | `false` |
 
+The setting is also shown as the `OTP` entry of the store's **Store authentication types** blade. Turning the entry on or off there changes the setting.
+
 ## References
 
 * [Deployment](https://docs.virtocommerce.org/platform/developer-guide/Tutorials-and-How-tos/Tutorials/deploy-module-from-source-code/)

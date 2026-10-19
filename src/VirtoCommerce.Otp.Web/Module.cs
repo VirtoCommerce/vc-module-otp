@@ -12,6 +12,7 @@ using VirtoCommerce.Platform.Core.Modularity;
 using VirtoCommerce.Platform.Core.Settings;
 using VirtoCommerce.Platform.Security.OpenIddict;
 using VirtoCommerce.StoreModule.Core.Model;
+using VirtoCommerce.StoreModule.Core.Services;
 
 namespace VirtoCommerce.Otp.Web;
 
@@ -23,6 +24,7 @@ public class Module : IModule, IHasConfiguration
     public void Initialize(IServiceCollection serviceCollection)
     {
         serviceCollection.AddTransient<IOtpService, OtpService>();
+        serviceCollection.AddTransient<IStoreAuthenticationTypeProvider, OtpStoreAuthenticationTypeProvider>();
         serviceCollection.AddGrantTypeHandler<OtpGrantTypeHandler>(ModuleConstants.Security.GrantType);
     }
 
