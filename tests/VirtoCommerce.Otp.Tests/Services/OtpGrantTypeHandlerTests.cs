@@ -21,6 +21,7 @@ namespace VirtoCommerce.Otp.Tests.Services;
 public class OtpGrantTypeHandlerTests : OtpTestsBase
 {
     private readonly Mock<IEventPublisher> _eventPublisher;
+    private readonly Mock<ITwoFactorSignInService> _twoFactorSignInService = new();
     private readonly OtpGrantTypeHandler _handler;
 
     public OtpGrantTypeHandlerTests()
@@ -215,6 +216,21 @@ public class OtpGrantTypeHandlerTests : OtpTestsBase
         _eventPublisher.Verify(x => x.Publish(It.IsAny<UserLoginEvent>()), Times.Once);
     }
 
+    [Fact]
+    public async Task HandleAsync_Should_NotRequireASecondFactor_When_TheUserRequiresTwoFactor()
+    {
+        // Arrange
+        SignInManager.Setup(x => x.IsTwoFactorEnabledAsync(It.IsAny<ApplicationUser>())).ReturnsAsync(true);
+        var requestContext = CreateRequestContext(ActiveUserEmail, ValidCode);
+
+        // Act
+        var actionResult = await _handler.HandleAsync(requestContext);
+
+        // Assert
+        Assert.IsType<SignInResult>(actionResult);
+        _twoFactorSignInService.Verify(x => x.ChallengeAsync(It.IsAny<TokenRequestContext>()), Times.Never);
+    }
+
     private static TokenRequestContext CreateRequestContext(string email, string code, string storeId = StoreId, bool detailedErrors = false)
     {
         var request = new OpenIddictRequest { GrantType = ModuleConstants.Security.GrantType };
@@ -240,6 +256,7 @@ public class OtpGrantTypeHandlerTests : OtpTestsBase
             [],
             [],
             _eventPublisher.Object,
+            _twoFactorSignInService.Object,
             OtpService);
     }
 }
