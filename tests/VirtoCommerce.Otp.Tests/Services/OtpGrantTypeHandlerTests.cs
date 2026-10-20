@@ -10,6 +10,7 @@ using VirtoCommerce.Platform.Core.Events;
 using VirtoCommerce.Platform.Core.Security;
 using VirtoCommerce.Platform.Core.Security.Events;
 using VirtoCommerce.Platform.Core.Security.SignInLog;
+using VirtoCommerce.Platform.Security;
 using VirtoCommerce.Platform.Security.Exceptions;
 using VirtoCommerce.Platform.Security.OpenIddict;
 using Xunit;
@@ -27,6 +28,9 @@ public class OtpGrantTypeHandlerTests : OtpTestsBase
     public OtpGrantTypeHandlerTests()
     {
         _eventPublisher = new Mock<IEventPublisher>();
+        _twoFactorSignInService
+            .Setup(x => x.IsTwoFactorRequiredAsync(It.IsAny<ApplicationUser>()))
+            .ReturnsAsync((ApplicationUser user) => user.TwoFactorEnabled);
         _handler = CreateHandler();
     }
 
@@ -220,7 +224,7 @@ public class OtpGrantTypeHandlerTests : OtpTestsBase
     public async Task HandleAsync_Should_NotRequireASecondFactor_When_TheUserRequiresTwoFactor()
     {
         // Arrange
-        SignInManager.Setup(x => x.IsTwoFactorEnabledAsync(It.IsAny<ApplicationUser>())).ReturnsAsync(true);
+        ActiveUser.TwoFactorEnabled = true;
         var requestContext = CreateRequestContext(ActiveUserEmail, ValidCode);
 
         // Act

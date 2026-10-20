@@ -5,7 +5,7 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="VirtoCommerce.NotificationsModule.Core" Version="3.1009.3" />
-    <PackageReference Include="VirtoCommerce.Platform.Core" Version="3.1086.0-alpha.13445-vcst-5904" />
+    <PackageReference Include="VirtoCommerce.Platform.Core" Version="3.1088.0-alpha.13453-vcst-5904" />
     <PackageReference Include="VirtoCommerce.StoreModule.Core" Version="3.1005.1" />
   </ItemGroup>
 </Project>
