@@ -9,6 +9,7 @@ using VirtoCommerce.Otp.Core.Services;
 using VirtoCommerce.Platform.Core.Events;
 using VirtoCommerce.Platform.Core.Security;
 using VirtoCommerce.Platform.Core.Security.SignInLog;
+using VirtoCommerce.Platform.Security;
 using VirtoCommerce.Platform.Security.OpenIddict;
 using static OpenIddict.Abstractions.OpenIddictConstants;
 
@@ -21,8 +22,9 @@ public class OtpGrantTypeHandler(
     IEnumerable<ITokenClaimProvider> claimProviders,
     IEnumerable<ITokenRequestHandler> requestHandlers,
     IEventPublisher eventPublisher,
+    ITwoFactorSignInService twoFactorSignInService,
     IOtpService otpService)
-    : GrantTypeHandlerBase(signInManager, identityOptions, requestValidators, claimProviders, requestHandlers, eventPublisher)
+    : GrantTypeHandlerBase(signInManager, identityOptions, requestValidators, claimProviders, requestHandlers, eventPublisher, twoFactorSignInService)
 {
     public override string GrantType => ModuleConstants.Security.GrantType;
 
@@ -50,6 +52,11 @@ public class OtpGrantTypeHandler(
         }
 
         return GrantValidationResult.Succeed(verifyResult.User);
+    }
+
+    protected override Task<bool> IsTwoFactorRequiredAsync(TokenRequestContext context)
+    {
+        return Task.FromResult(false);
     }
 
     protected override UserSignInAttemptEvent BuildSignInAttemptEvent(TokenRequestContext context, bool succeeded)
