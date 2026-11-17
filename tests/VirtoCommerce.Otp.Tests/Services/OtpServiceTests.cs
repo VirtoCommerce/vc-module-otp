@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Moq;
 using VirtoCommerce.NotificationsModule.Core.Model;
+using VirtoCommerce.Otp.Core;
 using VirtoCommerce.Otp.Core.Models;
 using VirtoCommerce.Platform.Core.Security;
 using Xunit;
@@ -66,6 +68,36 @@ public class OtpServiceTests : OtpTestsBase
 
         // Assert
         await Assert.ThrowsAsync<ArgumentException>(action);
+    }
+
+    [Theory]
+    [InlineData(StoreId, ActiveUserEmail, true)]
+    [InlineData(StoreId, UntrustedStoreUserEmail, false)]
+    [InlineData(OtpDisabledStoreId, ActiveUserEmail, false)]
+    public async Task RequestCodeAsync_Should_UpdateTheCodeStamp_When_TheCodeIsSent(string storeId, string email, bool expectedUpdate)
+    {
+        // Act
+        await OtpService.RequestCodeAsync(storeId, email);
+
+        // Assert
+        VerifyCodeStampUpdated(expectedUpdate ? Times.Once() : Times.Never());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task RequestCodeAsync_Should_NotSendTheCode_When_TheCodeStampIsNotUpdated(bool throwsDuplicateEmail)
+    {
+        // Arrange
+        SetUpCodeStampFailure(throwsDuplicateEmail);
+
+        // Act
+        var result = await OtpService.RequestCodeAsync(StoreId, ActiveUserEmail);
+
+        // Assert
+        Assert.Equal(OtpOutcome.CodeStampNotUpdated, result.Outcome);
+        UserManager.Verify(x => x.GenerateUserTokenAsync(It.IsAny<ApplicationUser>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+        NotificationSender.Verify(x => x.ScheduleSendNotificationAsync(It.IsAny<Notification>()), Times.Never);
     }
 
     [Fact]
@@ -152,5 +184,103 @@ public class OtpServiceTests : OtpTestsBase
         // Assert
         Assert.Equal(OtpOutcome.InvalidCode, result.Outcome);
         UserManager.Verify(x => x.AccessFailedAsync(ActiveUser), Times.Once);
+    }
+
+    [Fact]
+    public async Task VerifyCodeAsync_Should_RejectTheCode_When_ItWasAlreadyAccepted()
+    {
+        // Arrange
+        await OtpService.VerifyCodeAsync(StoreId, ActiveUserEmail, ValidCode);
+
+        // Act
+        var result = await OtpService.VerifyCodeAsync(StoreId, ActiveUserEmail, ValidCode);
+
+        // Assert
+        Assert.Equal(OtpOutcome.InvalidCode, result.Outcome);
+        UserManager.Verify(x => x.AccessFailedAsync(ActiveUser), Times.Once);
+    }
+
+    [Fact]
+    public async Task VerifyCodeAsync_Should_RejectTheCode_When_ANewCodeWasRequested()
+    {
+        // Arrange
+        await OtpService.RequestCodeAsync(StoreId, ActiveUserEmail);
+
+        // Act
+        var result = await OtpService.VerifyCodeAsync(StoreId, ActiveUserEmail, ValidCode);
+
+        // Assert
+        Assert.Equal(OtpOutcome.InvalidCode, result.Outcome);
+    }
+
+    [Theory]
+    [InlineData(ActiveUserEmail, ValidCode, true)]
+    [InlineData(ActiveUserEmail, InvalidCode, false)]
+    [InlineData(UntrustedStoreUserEmail, ValidCode, false)]
+    [InlineData(TemporarilyLockedUserEmail, ValidCode, false)]
+    public async Task VerifyCodeAsync_Should_UpdateTheCodeStamp_When_TheCodeIsAccepted(string email, string code, bool expectedUpdate)
+    {
+        // Act
+        await OtpService.VerifyCodeAsync(StoreId, email, code);
+
+        // Assert
+        VerifyCodeStampUpdated(expectedUpdate ? Times.Once() : Times.Never());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task VerifyCodeAsync_Should_Fail_When_TheCodeStampIsNotUpdated(bool throwsDuplicateEmail)
+    {
+        // Arrange
+        SetUpCodeStampFailure(throwsDuplicateEmail);
+
+        // Act
+        var result = await OtpService.VerifyCodeAsync(StoreId, ActiveUserEmail, ValidCode);
+
+        // Assert
+        Assert.Equal(OtpOutcome.CodeStampNotUpdated, result.Outcome);
+        UserManager.Verify(x => x.ResetAccessFailedCountAsync(It.IsAny<ApplicationUser>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task VerifyCodeAsync_Should_AcceptTheCodeOnce_When_RequestsRunInParallel()
+    {
+        // Arrange
+        UserManager
+            .Setup(x => x.VerifyUserTokenAsync(It.IsAny<ApplicationUser>(), ModuleConstants.Security.TokenProvider, ModuleConstants.Security.TokenPurpose, It.IsAny<string>()))
+            .Returns(async (ApplicationUser user, string _, string _, string code) =>
+            {
+                var codeStamp = CodeStamps.GetValueOrDefault(user.Id);
+                // Gives the other request time to check the same code before this one changes the code stamp.
+                await Task.Delay(100);
+                return code == ValidCode && codeStamp == ValidCodeStamp;
+            });
+
+        // Act
+        var results = await Task.WhenAll(
+            Task.Run(() => OtpService.VerifyCodeAsync(StoreId, ActiveUserEmail, ValidCode)),
+            Task.Run(() => OtpService.VerifyCodeAsync(StoreId, ActiveUserEmail, ValidCode)));
+
+        // Assert
+        Assert.Single(results, x => x.Outcome == OtpOutcome.Success);
+        Assert.Single(results, x => x.Outcome == OtpOutcome.InvalidCode);
+    }
+
+    [Theory]
+    [InlineData(ActiveUserEmail, ValidCode, true)]
+    [InlineData(ActiveUserEmail, InvalidCode, true)]
+    [InlineData(UnknownEmail, ValidCode, false)]
+    [InlineData(TemporarilyLockedUserEmail, ValidCode, false)]
+    public async Task VerifyCodeAsync_Should_LockTheUser_When_TheUserIsValid(string email, string code, bool expectedLock)
+    {
+        // Arrange
+        string[] expectedResources = expectedLock ? [$"{ModuleConstants.Security.CodeLockResourcePrefix}:{ActiveUserId}"] : [];
+
+        // Act
+        await OtpService.VerifyCodeAsync(StoreId, email, code);
+
+        // Assert
+        Assert.Equal(expectedResources, DistributedLock.AcquiredResources);
     }
 }

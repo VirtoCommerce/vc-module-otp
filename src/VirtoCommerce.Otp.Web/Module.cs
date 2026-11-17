@@ -1,5 +1,6 @@
 using System.IO;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using VirtoCommerce.NotificationsModule.Core.Services;
@@ -7,6 +8,7 @@ using VirtoCommerce.NotificationsModule.TemplateLoader.FileSystem;
 using VirtoCommerce.Otp.Core;
 using VirtoCommerce.Otp.Core.Notifications;
 using VirtoCommerce.Otp.Core.Services;
+using VirtoCommerce.Otp.Data.Providers;
 using VirtoCommerce.Otp.Data.Services;
 using VirtoCommerce.Platform.Core.Modularity;
 using VirtoCommerce.Platform.Core.Settings;
@@ -22,6 +24,10 @@ public class Module : IModule, IHasConfiguration
 
     public void Initialize(IServiceCollection serviceCollection)
     {
+        serviceCollection.AddTransient<OtpEmailTokenProvider>();
+        serviceCollection.Configure<IdentityOptions>(options =>
+            options.Tokens.ProviderMap[ModuleConstants.Security.TokenProvider] = new TokenProviderDescriptor(typeof(OtpEmailTokenProvider)));
+
         serviceCollection.AddTransient<IOtpService, OtpService>();
         serviceCollection.AddGrantTypeHandler<OtpGrantTypeHandler>(ModuleConstants.Security.GrantType);
     }

@@ -1,6 +1,8 @@
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
+using Moq;
+using VirtoCommerce.NotificationsModule.Core.Model;
 using VirtoCommerce.Otp.Core.Models;
 using VirtoCommerce.Otp.Web.Controllers.Api;
 using VirtoCommerce.Platform.Core.Security;
@@ -59,6 +61,25 @@ public class OtpControllerTests : OtpTestsBase
         // Assert
         var result = Assert.IsType<OtpRequestResult>(Assert.IsType<OkObjectResult>(actionResult.Result).Value);
         Assert.Equal(expectedSecondsRemaining, result.LockoutSecondsRemaining);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task RequestCode_Should_ReportAFailedSignIn_When_TheCodeStampIsNotUpdated(bool detailedErrors)
+    {
+        // Arrange
+        SetUpCodeStampFailure();
+        var controller = CreateController(detailedErrors);
+
+        // Act
+        var actionResult = await controller.RequestCode(new OtpRequest { Email = ActiveUserEmail, StoreId = StoreId });
+
+        // Assert
+        var result = Assert.IsType<OtpRequestResult>(Assert.IsType<OkObjectResult>(actionResult.Result).Value);
+        Assert.False(result.Succeeded);
+        Assert.Equal("login_failed", result.Error?.Code);
+        NotificationSender.Verify(x => x.ScheduleSendNotificationAsync(It.IsAny<Notification>()), Times.Never);
     }
 
     [Fact]

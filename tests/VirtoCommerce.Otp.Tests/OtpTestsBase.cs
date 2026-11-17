@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Security.Claims;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authentication;
@@ -69,9 +70,15 @@ public abstract class OtpTestsBase
 
     public const string ValidCode = "246810";
     public const string InvalidCode = "000000";
+    public const string ValidCodeStamp = "valid-code-stamp";
     public const int LockoutSeconds = 600;
 
+    private static readonly Expression<Func<UserManager<ApplicationUser>, Task<IdentityResult>>> _setCodeStamp = x =>
+        x.SetAuthenticationTokenAsync(It.IsAny<ApplicationUser>(), ModuleConstants.Security.CodeStampLoginProvider, ModuleConstants.Security.CodeStampName, It.IsAny<string>());
+
     public IOtpService OtpService { get; }
+
+    public Dictionary<string, string> CodeStamps { get; } = [];
 
     public Mock<UserManager<ApplicationUser>> UserManager { get; }
 
@@ -82,6 +89,8 @@ public abstract class OtpTestsBase
     public Mock<IStoreService> StoreService { get; }
 
     public Mock<INotificationSender> NotificationSender { get; }
+
+    public TestDistributedLock DistributedLock { get; } = new();
 
     public ApplicationUser ActiveUser { get; }
 
@@ -176,6 +185,11 @@ public abstract class OtpTestsBase
             CreateUser(SecondDuplicateUserId, DuplicateEmail, StoreId),
         };
 
+        foreach (var user in users)
+        {
+            CodeStamps[user.Id] = ValidCodeStamp;
+        }
+
         var userStore = new Mock<IUserStore<ApplicationUser>>();
         UserManager = new Mock<UserManager<ApplicationUser>>(userStore.Object, null, null, null, null, null, null, null, null);
 
@@ -199,8 +213,20 @@ public abstract class OtpTestsBase
             .ReturnsAsync((ApplicationUser user) => user.LockoutEnd > DateTimeOffset.UtcNow);
 
         UserManager
-            .Setup(x => x.VerifyUserTokenAsync(It.IsAny<ApplicationUser>(), TokenOptions.DefaultEmailProvider, ModuleConstants.Security.TokenPurpose, It.IsAny<string>()))
-            .ReturnsAsync((ApplicationUser _, string _, string _, string code) => code == ValidCode);
+            .Setup(x => x.GenerateUserTokenAsync(It.IsAny<ApplicationUser>(), ModuleConstants.Security.TokenProvider, ModuleConstants.Security.TokenPurpose))
+            .ReturnsAsync(ValidCode);
+
+        UserManager
+            .Setup(x => x.VerifyUserTokenAsync(It.IsAny<ApplicationUser>(), ModuleConstants.Security.TokenProvider, ModuleConstants.Security.TokenPurpose, It.IsAny<string>()))
+            .ReturnsAsync((ApplicationUser user, string _, string _, string code) => code == ValidCode && CodeStamps.GetValueOrDefault(user.Id) == ValidCodeStamp);
+
+        UserManager
+            .Setup(_setCodeStamp)
+            .ReturnsAsync((ApplicationUser user, string _, string _, string codeStamp) =>
+            {
+                CodeStamps[user.Id] = codeStamp;
+                return IdentityResult.Success;
+            });
 
         SignInManager = new Mock<SignInManager<ApplicationUser>>(
             UserManager.Object,
@@ -234,7 +260,27 @@ public abstract class OtpTestsBase
             StoreService.Object,
             memberService.Object,
             notificationSearchService.Object,
-            NotificationSender.Object);
+            NotificationSender.Object,
+            DistributedLock);
+    }
+
+    protected void SetUpCodeStampFailure(bool throwsDuplicateEmail = false)
+    {
+        var setup = UserManager.Setup(_setCodeStamp);
+
+        if (throwsDuplicateEmail)
+        {
+            setup.ThrowsAsync(new DuplicateEmailException(ActiveUserEmail));
+        }
+        else
+        {
+            setup.ReturnsAsync(IdentityResult.Failed(new IdentityError { Code = "ConcurrencyFailure" }));
+        }
+    }
+
+    protected void VerifyCodeStampUpdated(Times times)
+    {
+        UserManager.Verify(_setCodeStamp, times);
     }
 
     private static ApplicationUser CreateUser(string id, string email, string storeId, DateTimeOffset? lockoutEnd = null, bool lockoutEnabled = true, bool emailConfirmed = true, string memberId = ContactId, bool isAdministrator = false)

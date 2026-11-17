@@ -99,6 +99,39 @@ public class OtpGrantTypeHandlerTests : OtpTestsBase
     }
 
     [Fact]
+    public async Task HandleAsync_Should_ReturnInvalidCode_When_TheCodeIsReused()
+    {
+        // Arrange
+        await _handler.HandleAsync(CreateRequestContext(ActiveUserEmail, ValidCode));
+        var requestContext = CreateRequestContext(ActiveUserEmail, ValidCode);
+
+        // Act
+        var actionResult = await _handler.HandleAsync(requestContext);
+
+        // Assert
+        var badRequest = Assert.IsType<BadRequestObjectResult>(actionResult);
+        Assert.Equal("invalid_code", ((TokenResponse)badRequest.Value).Code);
+        Assert.Equal(ModuleConstants.Security.FailureReason.InvalidCode, requestContext.FailureReason);
+    }
+
+    [Fact]
+    public async Task HandleAsync_Should_ReturnInvalidCode_When_TheCodeStampIsNotUpdated()
+    {
+        // Arrange
+        SetUpCodeStampFailure();
+        var requestContext = CreateRequestContext(ActiveUserEmail, ValidCode);
+
+        // Act
+        var actionResult = await _handler.HandleAsync(requestContext);
+
+        // Assert
+        var badRequest = Assert.IsType<BadRequestObjectResult>(actionResult);
+        Assert.Equal("invalid_code", ((TokenResponse)badRequest.Value).Code);
+        Assert.Equal(ModuleConstants.Security.FailureReason.CodeStampNotUpdated, requestContext.FailureReason);
+        Assert.False(requestContext.SignInResult.Succeeded);
+    }
+
+    [Fact]
     public async Task HandleAsync_Should_NotCheckWhetherTheUserCanSignIn_When_CodeIsInvalid()
     {
         // Arrange

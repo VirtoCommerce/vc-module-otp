@@ -10,6 +10,7 @@ using VirtoCommerce.Otp.Core.Models;
 using VirtoCommerce.Otp.Core.Notifications;
 using VirtoCommerce.Otp.Core.Services;
 using VirtoCommerce.Platform.Core.Common;
+using VirtoCommerce.Platform.Core.DistributedLock;
 using VirtoCommerce.Platform.Core.Security;
 using VirtoCommerce.Platform.Core.Settings;
 using VirtoCommerce.Platform.Security.Exceptions;
@@ -24,7 +25,8 @@ public class OtpService(
     IStoreService storeService,
     IMemberService memberService,
     INotificationSearchService notificationSearchService,
-    INotificationSender notificationSender)
+    INotificationSender notificationSender,
+    IDistributedLock distributedLock)
     : IOtpService
 {
     public virtual async Task<OtpResult> RequestCodeAsync(string storeId, string email)
@@ -46,7 +48,12 @@ public class OtpService(
             return OtpResult.Fail(OtpOutcome.StoreAccessDenied, store, user);
         }
 
-        var code = await userManager.GenerateUserTokenAsync(user, TokenOptions.DefaultEmailProvider, ModuleConstants.Security.TokenPurpose);
+        if (!await UpdateCodeStampAsync(user))
+        {
+            return OtpResult.Fail(OtpOutcome.CodeStampNotUpdated, store, user);
+        }
+
+        var code = await userManager.GenerateUserTokenAsync(user, ModuleConstants.Security.TokenProvider, ModuleConstants.Security.TokenPurpose);
         await SendCodeNotificationAsync(store, user, email, code);
 
         return OtpResult.Succeed(store, user);
@@ -64,10 +71,13 @@ public class OtpService(
             return result;
         }
 
-        var store = result.Store;
-        var user = result.User;
+        return await distributedLock.ExecuteAsync(GetCodeLockResource(result.User),
+            _ => VerifyAndConsumeCodeAsync(result.Store, result.User, code));
+    }
 
-        var isValid = await userManager.VerifyUserTokenAsync(user, TokenOptions.DefaultEmailProvider, ModuleConstants.Security.TokenPurpose, code);
+    protected virtual async Task<OtpResult> VerifyAndConsumeCodeAsync(Store store, ApplicationUser user, string code)
+    {
+        var isValid = await userManager.VerifyUserTokenAsync(user, ModuleConstants.Security.TokenProvider, ModuleConstants.Security.TokenPurpose, code);
         if (!isValid)
         {
             await userManager.AccessFailedAsync(user);
@@ -77,6 +87,11 @@ public class OtpService(
         if (!await CanSignInToStoreAsync(user, store))
         {
             return OtpResult.Fail(OtpOutcome.StoreAccessDenied, store, user);
+        }
+
+        if (!await UpdateCodeStampAsync(user))
+        {
+            return OtpResult.Fail(OtpOutcome.CodeStampNotUpdated, store, user);
         }
 
         await userManager.ResetAccessFailedCountAsync(user);
@@ -137,6 +152,26 @@ public class OtpService(
             !string.IsNullOrEmpty(user.StoreId) && (
                 store.Id == user.StoreId ||
                 store.TrustedGroups.Contains(user.StoreId));
+    }
+
+    protected virtual string GetCodeLockResource(ApplicationUser user)
+    {
+        return $"{ModuleConstants.Security.CodeLockResourcePrefix}:{user.Id}";
+    }
+
+    protected virtual async Task<bool> UpdateCodeStampAsync(ApplicationUser user)
+    {
+        try
+        {
+            var result = await userManager.SetAuthenticationTokenAsync(user,
+                ModuleConstants.Security.CodeStampLoginProvider, ModuleConstants.Security.CodeStampName, Guid.NewGuid().ToString("N"));
+
+            return result.Succeeded;
+        }
+        catch (DuplicateEmailException)
+        {
+            return false;
+        }
     }
 
     protected virtual async Task SendCodeNotificationAsync(Store store, ApplicationUser user, string email, string code)
