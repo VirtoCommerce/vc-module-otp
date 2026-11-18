@@ -13,6 +13,7 @@ using VirtoCommerce.Platform.Core.Common;
 using VirtoCommerce.Platform.Core.DistributedLock;
 using VirtoCommerce.Platform.Core.Security;
 using VirtoCommerce.Platform.Core.Settings;
+using VirtoCommerce.Platform.Security.Caching;
 using VirtoCommerce.Platform.Security.Exceptions;
 using VirtoCommerce.StoreModule.Core.Model;
 using VirtoCommerce.StoreModule.Core.Services;
@@ -67,42 +68,50 @@ public class OtpService(
         }
 
         return await distributedLock.ExecuteAsync(GetCodeLockResource(result.User),
-            _ => VerifyAndConsumeCodeAsync(result.Store, result.User.Id, code));
+            _ => VerifyAndConsumeCodeAsync(result.Store, result.User, code));
     }
 
-    protected virtual async Task<OtpResult> VerifyAndConsumeCodeAsync(Store store, string userId, string code)
+    protected virtual async Task<OtpResult> VerifyAndConsumeCodeAsync(Store store, ApplicationUser user, string code)
     {
-        var user = await userManager.FindByIdAsync(userId);
-        if (user == null)
+        var currentUser = await ReloadUserAsync(user);
+        if (currentUser == null)
         {
             return OtpResult.Fail(OtpOutcome.UserNotFound, store);
         }
 
-        if (await userManager.IsLockedOutAsync(user))
+        if (await userManager.IsLockedOutAsync(currentUser))
         {
-            return OtpResult.Fail(OtpOutcome.AccountLocked, store, user);
+            return OtpResult.Fail(OtpOutcome.AccountLocked, store, currentUser);
         }
 
-        var isValid = await userManager.VerifyUserTokenAsync(user, ModuleConstants.Security.TokenProvider, ModuleConstants.Security.TokenPurpose, code);
+        var isValid = await userManager.VerifyUserTokenAsync(currentUser, ModuleConstants.Security.TokenProvider, ModuleConstants.Security.TokenPurpose, code);
         if (!isValid)
         {
-            await userManager.AccessFailedAsync(user);
-            return OtpResult.Fail(OtpOutcome.InvalidCode, store, user);
+            await userManager.AccessFailedAsync(currentUser);
+            return OtpResult.Fail(OtpOutcome.InvalidCode, store, currentUser);
         }
 
-        if (!await CanSignInToStoreAsync(user, store))
+        if (!await CanSignInToStoreAsync(currentUser, store))
         {
-            return OtpResult.Fail(OtpOutcome.StoreAccessDenied, store, user);
+            return OtpResult.Fail(OtpOutcome.StoreAccessDenied, store, currentUser);
         }
 
-        if (!await UpdateCodeStampAsync(user))
+        if (!await UpdateCodeStampAsync(currentUser))
         {
-            return OtpResult.Fail(OtpOutcome.CodeStampNotUpdated, store, user);
+            return OtpResult.Fail(OtpOutcome.CodeStampNotUpdated, store, currentUser);
         }
 
-        await userManager.ResetAccessFailedCountAsync(user);
+        await userManager.ResetAccessFailedCountAsync(currentUser);
 
-        return OtpResult.Succeed(store, user);
+        return OtpResult.Succeed(store, currentUser);
+    }
+
+    protected virtual Task<ApplicationUser> ReloadUserAsync(ApplicationUser user)
+    {
+        // Another platform instance may have saved the user while this instance still caches the old copy.
+        SecurityCacheRegion.ExpireUser(user);
+
+        return userManager.FindByIdAsync(user.Id);
     }
 
     protected virtual async Task<OtpResult> ValidateUserAsync(string storeId, string email)

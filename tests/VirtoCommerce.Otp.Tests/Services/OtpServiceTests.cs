@@ -7,6 +7,7 @@ using VirtoCommerce.Otp.Core;
 using VirtoCommerce.Otp.Core.Models;
 using VirtoCommerce.Otp.Core.Notifications;
 using VirtoCommerce.Platform.Core.Security;
+using VirtoCommerce.Platform.Security.Caching;
 using Xunit;
 
 namespace VirtoCommerce.Otp.Tests.Services;
@@ -312,6 +313,25 @@ public class OtpServiceTests : OtpTestsBase
         Assert.Same(currentUser, result.User);
         UserManager.Verify(x => x.AccessFailedAsync(currentUser), Times.Once);
         UserManager.Verify(x => x.AccessFailedAsync(ActiveUser), Times.Never);
+    }
+
+    [Fact]
+    public async Task VerifyCodeAsync_Should_ExpireCachedUser_Before_ReloadingUnderLock()
+    {
+        // Arrange
+        var cacheToken = SecurityCacheRegion.CreateChangeTokenForUser(ActiveUser);
+        bool? isExpiredOnReload = null;
+
+        UserManager
+            .Setup(x => x.FindByIdAsync(ActiveUserId))
+            .Callback(() => isExpiredOnReload = cacheToken.HasChanged)
+            .ReturnsAsync(ActiveUser);
+
+        // Act
+        await OtpService.VerifyCodeAsync(StoreId, ActiveUserEmail, ValidCode);
+
+        // Assert
+        Assert.True(isExpiredOnReload);
     }
 
     [Fact]
