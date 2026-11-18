@@ -108,7 +108,6 @@ public class OtpService(
 
     protected virtual Task<ApplicationUser> ReloadUserAsync(ApplicationUser user)
     {
-        // Another platform instance may have saved the user while this instance still caches the old copy.
         SecurityCacheRegion.ExpireUser(user);
 
         return userManager.FindByIdAsync(user.Id);
