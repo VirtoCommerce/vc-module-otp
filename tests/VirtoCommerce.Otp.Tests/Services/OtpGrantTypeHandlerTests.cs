@@ -45,7 +45,7 @@ public class OtpGrantTypeHandlerTests : OtpTestsBase
     }
 
     [Fact]
-    public async Task HandleAsync_Should_NameTheMissingParameters_When_RequiredParametersAreMissing()
+    public async Task HandleAsync_Should_NameMissingParameters_When_RequiredParametersAreMissing()
     {
         // Arrange
         var requestContext = CreateRequestContext(email: ActiveUserEmail, code: null, storeId: null);
@@ -99,7 +99,40 @@ public class OtpGrantTypeHandlerTests : OtpTestsBase
     }
 
     [Fact]
-    public async Task HandleAsync_Should_NotCheckWhetherTheUserCanSignIn_When_CodeIsInvalid()
+    public async Task HandleAsync_Should_ReturnInvalidCode_When_CodeIsReused()
+    {
+        // Arrange
+        await _handler.HandleAsync(CreateRequestContext(ActiveUserEmail, ValidCode));
+        var requestContext = CreateRequestContext(ActiveUserEmail, ValidCode);
+
+        // Act
+        var actionResult = await _handler.HandleAsync(requestContext);
+
+        // Assert
+        var badRequest = Assert.IsType<BadRequestObjectResult>(actionResult);
+        Assert.Equal("invalid_code", ((TokenResponse)badRequest.Value).Code);
+        Assert.Equal(ModuleConstants.Security.FailureReason.InvalidCode, requestContext.FailureReason);
+    }
+
+    [Fact]
+    public async Task HandleAsync_Should_ReturnInvalidCode_When_CodeStampIsNotUpdated()
+    {
+        // Arrange
+        SetUpCodeStampFailure();
+        var requestContext = CreateRequestContext(ActiveUserEmail, ValidCode);
+
+        // Act
+        var actionResult = await _handler.HandleAsync(requestContext);
+
+        // Assert
+        var badRequest = Assert.IsType<BadRequestObjectResult>(actionResult);
+        Assert.Equal("invalid_code", ((TokenResponse)badRequest.Value).Code);
+        Assert.Equal(ModuleConstants.Security.FailureReason.CodeStampNotUpdated, requestContext.FailureReason);
+        Assert.False(requestContext.SignInResult.Succeeded);
+    }
+
+    [Fact]
+    public async Task HandleAsync_Should_NotCheckWhetherUserCanSignIn_When_CodeIsInvalid()
     {
         // Arrange
         var requestContext = CreateRequestContext(ActiveUserEmail, InvalidCode);
@@ -113,7 +146,7 @@ public class OtpGrantTypeHandlerTests : OtpTestsBase
     }
 
     [Fact]
-    public async Task HandleAsync_Should_ReportAnInvalidRequest_When_StoreDoesNotExist()
+    public async Task HandleAsync_Should_ReportInvalidRequest_When_StoreDoesNotExist()
     {
         // Arrange
         var requestContext = CreateRequestContext(ActiveUserEmail, ValidCode, UnknownStoreId);
@@ -150,7 +183,7 @@ public class OtpGrantTypeHandlerTests : OtpTestsBase
     [InlineData(TemporarilyLockedUserEmail, ValidCode, TemporarilyLockedUserId)]
     [InlineData(PermanentlyLockedUserEmail, ValidCode, PermanentlyLockedUserId)]
     [InlineData(UnknownEmail, ValidCode, null)]
-    public async Task HandleAsync_Should_LogTheFailedSignInAttempt(string email, string code, string expectedUserId)
+    public async Task HandleAsync_Should_LogFailedSignInAttempt(string email, string code, string expectedUserId)
     {
         // Arrange
         var requestContext = CreateRequestContext(email, code);
@@ -164,7 +197,7 @@ public class OtpGrantTypeHandlerTests : OtpTestsBase
     }
 
     [Fact]
-    public async Task HandleAsync_Should_ReturnBadRequest_When_ARequestValidatorRejectsTheRequest()
+    public async Task HandleAsync_Should_ReturnBadRequest_When_RequestValidatorRejectsRequest()
     {
         // Arrange
         var validatorError = new TokenResponse { Code = "custom_error" };
@@ -186,7 +219,7 @@ public class OtpGrantTypeHandlerTests : OtpTestsBase
     }
 
     [Fact]
-    public async Task HandleAsync_Should_ReturnBadRequest_When_UpdatingLastLoginDateHitsADuplicateEmail()
+    public async Task HandleAsync_Should_ReturnBadRequest_When_UpdatingLastLoginDateHitsDuplicateEmail()
     {
         // Arrange
         UserManager
@@ -221,7 +254,7 @@ public class OtpGrantTypeHandlerTests : OtpTestsBase
     }
 
     [Fact]
-    public async Task HandleAsync_Should_NotRequireASecondFactor_When_TheUserRequiresTwoFactor()
+    public async Task HandleAsync_Should_NotRequireSecondFactor_When_UserRequiresTwoFactor()
     {
         // Arrange
         ActiveUser.TwoFactorEnabled = true;

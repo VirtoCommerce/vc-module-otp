@@ -48,7 +48,7 @@ public class OtpControllerTests : OtpTestsBase
     [InlineData(TemporarilyLockedUserEmail, false, null)]
     [InlineData(PermanentlyLockedUserEmail, true, int.MaxValue)]
     [InlineData(PermanentlyLockedUserEmail, false, null)]
-    public async Task RequestCode_Should_ReportLockoutSeconds_Like_TheTokenEndpoint(string email, bool detailedErrors, int? expectedSecondsRemaining)
+    public async Task RequestCode_Should_ReportLockoutSeconds_Like_TokenEndpoint(string email, bool detailedErrors, int? expectedSecondsRemaining)
     {
         // Arrange
         var controller = CreateController(detailedErrors);
@@ -62,7 +62,7 @@ public class OtpControllerTests : OtpTestsBase
     }
 
     [Fact]
-    public async Task RequestCode_Should_ReturnTheMaskedEmail()
+    public async Task RequestCode_Should_ReturnMaskedEmail()
     {
         // Arrange
         var controller = CreateController(detailedErrors: false);

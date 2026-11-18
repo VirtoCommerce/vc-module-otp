@@ -108,6 +108,7 @@ public class OtpGrantTypeHandler(
             OtpOutcome.LockoutDisabled => ModuleConstants.Security.FailureReason.LockoutDisabled,
             OtpOutcome.AccountLocked => SignInFailureReason.LockedOut,
             OtpOutcome.StoreAccessDenied => SignInFailureReason.Forbidden,
+            OtpOutcome.CodeStampNotUpdated => ModuleConstants.Security.FailureReason.CodeStampNotUpdated,
             _ => SignInFailureReason.Unknown,
         };
 

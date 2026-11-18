@@ -10,6 +10,10 @@ public static class ModuleConstants
         public const string SignInType = "OTP";
         public const string GrantType = "otp_email";
         public const string TokenPurpose = "OtpSignIn";
+        public const string TokenProvider = "OtpEmail";
+        public const string CodeStampLoginProvider = "VirtoCommerce.Otp";
+        public const string CodeStampName = "CodeStamp";
+        public const string CodeLockResourcePrefix = "VirtoCommerce.Otp:Code";
 
         public static class Parameters
         {
@@ -25,6 +29,7 @@ public static class ModuleConstants
             public const string OtpDisabled = "OtpDisabled";
             public const string LockoutDisabled = "LockoutDisabled";
             public const string InvalidCode = "InvalidCode";
+            public const string CodeStampNotUpdated = "CodeStampNotUpdated";
         }
     }
 
