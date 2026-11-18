@@ -13,7 +13,7 @@ namespace VirtoCommerce.Otp.Tests;
 public class ModuleTests
 {
     [Fact]
-    public void Initialize_Should_RegisterTheOtpTokenProvider_And_KeepTheIdentityEmailProvider()
+    public void Initialize_Should_RegisterOtpTokenProvider_And_KeepIdentityEmailProvider()
     {
         // Arrange
         var services = new ServiceCollection();

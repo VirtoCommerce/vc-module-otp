@@ -48,11 +48,6 @@ public class OtpService(
             return OtpResult.Fail(OtpOutcome.StoreAccessDenied, store, user);
         }
 
-        if (!await UpdateCodeStampAsync(user))
-        {
-            return OtpResult.Fail(OtpOutcome.CodeStampNotUpdated, store, user);
-        }
-
         var code = await userManager.GenerateUserTokenAsync(user, ModuleConstants.Security.TokenProvider, ModuleConstants.Security.TokenPurpose);
         await SendCodeNotificationAsync(store, user, email, code);
 
@@ -72,11 +67,22 @@ public class OtpService(
         }
 
         return await distributedLock.ExecuteAsync(GetCodeLockResource(result.User),
-            _ => VerifyAndConsumeCodeAsync(result.Store, result.User, code));
+            _ => VerifyAndConsumeCodeAsync(result.Store, result.User.Id, code));
     }
 
-    protected virtual async Task<OtpResult> VerifyAndConsumeCodeAsync(Store store, ApplicationUser user, string code)
+    protected virtual async Task<OtpResult> VerifyAndConsumeCodeAsync(Store store, string userId, string code)
     {
+        var user = await userManager.FindByIdAsync(userId);
+        if (user == null)
+        {
+            return OtpResult.Fail(OtpOutcome.UserNotFound, store);
+        }
+
+        if (await userManager.IsLockedOutAsync(user))
+        {
+            return OtpResult.Fail(OtpOutcome.AccountLocked, store, user);
+        }
+
         var isValid = await userManager.VerifyUserTokenAsync(user, ModuleConstants.Security.TokenProvider, ModuleConstants.Security.TokenPurpose, code);
         if (!isValid)
         {

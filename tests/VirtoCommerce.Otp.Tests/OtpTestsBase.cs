@@ -68,9 +68,9 @@ public abstract class OtpTestsBase
     public const string FirstDuplicateUserId = "first-duplicate-user";
     public const string SecondDuplicateUserId = "second-duplicate-user";
 
-    public const string ValidCode = "246810";
-    public const string InvalidCode = "000000";
     public const string ValidCodeStamp = "valid-code-stamp";
+    public const string ValidCode = "code-" + ValidCodeStamp;
+    public const string InvalidCode = "000000";
     public const int LockoutSeconds = 600;
 
     private static readonly Expression<Func<UserManager<ApplicationUser>, Task<IdentityResult>>> _setCodeStamp = x =>
@@ -205,6 +205,10 @@ public abstract class OtpTestsBase
             });
 
         UserManager
+            .Setup(x => x.FindByIdAsync(It.IsAny<string>()))
+            .ReturnsAsync((string id) => users.FirstOrDefault(x => x.Id == id));
+
+        UserManager
             .Setup(x => x.GetLockoutEnabledAsync(It.IsAny<ApplicationUser>()))
             .ReturnsAsync((ApplicationUser user) => user.LockoutEnabled);
 
@@ -214,11 +218,11 @@ public abstract class OtpTestsBase
 
         UserManager
             .Setup(x => x.GenerateUserTokenAsync(It.IsAny<ApplicationUser>(), ModuleConstants.Security.TokenProvider, ModuleConstants.Security.TokenPurpose))
-            .ReturnsAsync(ValidCode);
+            .ReturnsAsync((ApplicationUser user, string _, string _) => GetCode(CodeStamps[user.Id]));
 
         UserManager
             .Setup(x => x.VerifyUserTokenAsync(It.IsAny<ApplicationUser>(), ModuleConstants.Security.TokenProvider, ModuleConstants.Security.TokenPurpose, It.IsAny<string>()))
-            .ReturnsAsync((ApplicationUser user, string _, string _, string code) => code == ValidCode && CodeStamps.GetValueOrDefault(user.Id) == ValidCodeStamp);
+            .ReturnsAsync((ApplicationUser user, string _, string _, string code) => code == GetCode(CodeStamps[user.Id]));
 
         UserManager
             .Setup(_setCodeStamp)
@@ -264,6 +268,11 @@ public abstract class OtpTestsBase
             DistributedLock);
     }
 
+    protected static string GetCode(string codeStamp)
+    {
+        return $"code-{codeStamp}";
+    }
+
     protected void SetUpCodeStampFailure(bool throwsDuplicateEmail = false)
     {
         var setup = UserManager.Setup(_setCodeStamp);
@@ -283,7 +292,7 @@ public abstract class OtpTestsBase
         UserManager.Verify(_setCodeStamp, times);
     }
 
-    private static ApplicationUser CreateUser(string id, string email, string storeId, DateTimeOffset? lockoutEnd = null, bool lockoutEnabled = true, bool emailConfirmed = true, string memberId = ContactId, bool isAdministrator = false)
+    protected static ApplicationUser CreateUser(string id, string email, string storeId, DateTimeOffset? lockoutEnd = null, bool lockoutEnabled = true, bool emailConfirmed = true, string memberId = ContactId, bool isAdministrator = false)
     {
         return new ApplicationUser
         {

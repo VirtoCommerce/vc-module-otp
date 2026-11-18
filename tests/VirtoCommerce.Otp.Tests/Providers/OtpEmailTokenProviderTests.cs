@@ -38,7 +38,7 @@ public class OtpEmailTokenProviderTests
     }
 
     [Fact]
-    public async Task ValidateAsync_Should_AcceptTheCode_When_TheCodeStampIsTheSame()
+    public async Task ValidateAsync_Should_AcceptCode_When_CodeStampIsSame()
     {
         // Arrange
         _codeStamps[_user.Id] = "first-stamp";
@@ -52,7 +52,7 @@ public class OtpEmailTokenProviderTests
     }
 
     [Fact]
-    public async Task ValidateAsync_Should_RejectTheCode_When_TheCodeStampChanged()
+    public async Task ValidateAsync_Should_RejectCode_When_CodeStampChanged()
     {
         // Arrange
         _codeStamps[_user.Id] = "first-stamp";
@@ -67,7 +67,7 @@ public class OtpEmailTokenProviderTests
     }
 
     [Fact]
-    public async Task GetUserModifierAsync_Should_AddTheCodeStamp()
+    public async Task GetUserModifierAsync_Should_AddCodeStamp()
     {
         // Arrange
         _codeStamps[_user.Id] = "first-stamp";
