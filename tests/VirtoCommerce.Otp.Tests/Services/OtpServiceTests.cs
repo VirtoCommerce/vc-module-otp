@@ -63,6 +63,21 @@ public class OtpServiceTests : OtpTestsBase
     }
 
     [Fact]
+    public async Task RequestCodeAsync_Should_NotSendCode_When_OtpSignInIsDisabledGlobally()
+    {
+        // Arrange
+        SetupOtpSignInEnabled(isEnabled: false);
+
+        // Act
+        var result = await OtpService.RequestCodeAsync(StoreId, ActiveUserEmail);
+
+        // Assert
+        Assert.Equal(OtpOutcome.OtpDisabled, result.Outcome);
+        UserManager.Verify(x => x.GenerateUserTokenAsync(It.IsAny<ApplicationUser>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+        NotificationSender.Verify(x => x.ScheduleSendNotificationAsync(It.IsAny<Notification>()), Times.Never);
+    }
+
+    [Fact]
     public async Task RequestCodeAsync_Should_Throw_When_StoreIdIsEmpty()
     {
         // Act
@@ -110,6 +125,21 @@ public class OtpServiceTests : OtpTestsBase
 
         // Assert
         UserManager.Verify(x => x.FindByEmailAsync(It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task VerifyCodeAsync_Should_ReturnOtpDisabled_When_OtpSignInIsDisabledGlobally()
+    {
+        // Arrange
+        SetupOtpSignInEnabled(isEnabled: false);
+
+        // Act
+        var result = await OtpService.VerifyCodeAsync(StoreId, ActiveUserEmail, ValidCode);
+
+        // Assert
+        Assert.Equal(OtpOutcome.OtpDisabled, result.Outcome);
+        UserManager.Verify(x => x.VerifyUserTokenAsync(It.IsAny<ApplicationUser>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+        VerifyCodeStampUpdated(Times.Never());
     }
 
     [Theory]
@@ -227,7 +257,7 @@ public class OtpServiceTests : OtpTestsBase
     public async Task VerifyCodeAsync_Should_Fail_When_CodeStampIsNotUpdated(bool throwsDuplicateEmail)
     {
         // Arrange
-        SetUpCodeStampFailure(throwsDuplicateEmail);
+        SetupCodeStampFailure(throwsDuplicateEmail);
 
         // Act
         var result = await OtpService.VerifyCodeAsync(StoreId, ActiveUserEmail, ValidCode);

@@ -19,9 +19,12 @@ using VirtoCommerce.Otp.Core.Notifications;
 using VirtoCommerce.Otp.Core.Services;
 using VirtoCommerce.Otp.Data.Services;
 using VirtoCommerce.Platform.Core.Security;
+using VirtoCommerce.Platform.Core.Settings;
 using VirtoCommerce.Platform.Security.Exceptions;
+using VirtoCommerce.Platform.Security.SignInMethods;
 using VirtoCommerce.StoreModule.Core.Model;
 using VirtoCommerce.StoreModule.Core.Services;
+using VirtoCommerce.StoreModule.Data.Services;
 using OtpModuleSettings = VirtoCommerce.Otp.Core.ModuleConstants.Settings.General;
 
 namespace VirtoCommerce.Otp.Tests;
@@ -88,6 +91,8 @@ public abstract class OtpTestsBase
 
     public Mock<IStoreService> StoreService { get; }
 
+    public Mock<ISettingsManager> SettingsManager { get; } = new();
+
     public Mock<INotificationSender> NotificationSender { get; }
 
     public TestDistributedLock DistributedLock { get; } = new();
@@ -121,27 +126,41 @@ public abstract class OtpTestsBase
             Id = StoreId,
             DefaultLanguage = StoreLanguage,
             TrustedGroups = [TrustedStoreId],
-            Settings =
-            [
-                new() { Name = OtpModuleSettings.OtpSignInEnabled.Name, Value = true },
-            ],
         };
 
-        var disabledStore = new Store
-        {
-            Id = OtpDisabledStoreId,
-            Settings =
-            [
-                new() { Name = OtpModuleSettings.OtpSignInEnabled.Name, Value = false },
-            ],
-        };
-
+        var disabledStore = new Store { Id = OtpDisabledStoreId };
         var stores = new[] { store, disabledStore };
         StoreService = new Mock<IStoreService>();
 
         StoreService
             .Setup(x => x.GetAsync(It.IsAny<IList<string>>(), null, false))
             .ReturnsAsync((IList<string> ids, string _, bool _) => stores.Where(x => ids.Contains(x.Id)).ToList());
+
+        var otpSchemes = new[]
+        {
+            new StoreAuthenticationScheme { StoreId = StoreId, Name = ModuleConstants.Security.SignInType, IsActive = true },
+            new StoreAuthenticationScheme { StoreId = OtpDisabledStoreId, Name = ModuleConstants.Security.SignInType, IsActive = false },
+        };
+
+        SetupOtpSignInEnabled(isEnabled: true);
+
+        var schemeSearchService = new Mock<IStoreAuthenticationSchemeSearchService>();
+
+        schemeSearchService
+            .Setup(x => x.SearchAsync(It.IsAny<StoreAuthenticationSchemeSearchCriteria>(), It.IsAny<bool>()))
+            .ReturnsAsync((StoreAuthenticationSchemeSearchCriteria criteria, bool _) =>
+            {
+                var schemes = otpSchemes.Where(x => x.StoreId == criteria.StoreId).ToList();
+
+                return new StoreAuthenticationSchemeSearchResult { Results = schemes, TotalCount = schemes.Count };
+            });
+
+        var signInMethodService = new SignInMethodService([new OtpSignInMethodProvider(SettingsManager.Object)]);
+
+        var storeAuthenticationService = new StoreAuthenticationService(
+            new Mock<IStoreAuthenticationSchemeService>().Object,
+            schemeSearchService.Object,
+            signInMethodService);
 
         var members = new Member[]
         {
@@ -262,6 +281,7 @@ public abstract class OtpTestsBase
         OtpService = new OtpService(
             UserManager.Object,
             StoreService.Object,
+            storeAuthenticationService,
             memberService.Object,
             notificationSearchService.Object,
             NotificationSender.Object,
@@ -273,7 +293,14 @@ public abstract class OtpTestsBase
         return $"code-{codeStamp}";
     }
 
-    protected void SetUpCodeStampFailure(bool throwsDuplicateEmail = false)
+    protected void SetupOtpSignInEnabled(bool isEnabled)
+    {
+        SettingsManager
+            .Setup(x => x.GetObjectSettingAsync(OtpModuleSettings.OtpSignInEnabled.Name, null, null))
+            .ReturnsAsync(new ObjectSettingEntry { Value = isEnabled });
+    }
+
+    protected void SetupCodeStampFailure(bool throwsDuplicateEmail = false)
     {
         var setup = UserManager.Setup(_setCodeStamp);
 

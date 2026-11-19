@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using Microsoft.AspNetCore.Identity;
 using VirtoCommerce.Platform.Core.Security;
 using VirtoCommerce.Platform.Security.OpenIddict;
@@ -8,12 +7,6 @@ namespace VirtoCommerce.Otp.Data.Services;
 
 public static class OtpErrorDescriber
 {
-    public static IdentityError MissingParameters(IEnumerable<string> parameters) => new()
-    {
-        Code = "missing_parameter",
-        Description = $"Missing required parameters: {string.Join(", ", parameters)}.",
-    };
-
     public static IdentityError StoreNotFound() => new()
     {
         Code = "store_not_found",

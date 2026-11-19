@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Identity;
 using VirtoCommerce.CustomerModule.Core.Model;
@@ -12,18 +13,17 @@ using VirtoCommerce.Otp.Core.Services;
 using VirtoCommerce.Platform.Core.Common;
 using VirtoCommerce.Platform.Core.DistributedLock;
 using VirtoCommerce.Platform.Core.Security;
-using VirtoCommerce.Platform.Core.Settings;
 using VirtoCommerce.Platform.Security.Caching;
 using VirtoCommerce.Platform.Security.Exceptions;
 using VirtoCommerce.StoreModule.Core.Model;
 using VirtoCommerce.StoreModule.Core.Services;
-using OtpModuleSettings = VirtoCommerce.Otp.Core.ModuleConstants.Settings.General;
 
 namespace VirtoCommerce.Otp.Data.Services;
 
 public class OtpService(
     UserManager<ApplicationUser> userManager,
     IStoreService storeService,
+    IStoreAuthenticationService storeAuthenticationService,
     IMemberService memberService,
     INotificationSearchService notificationSearchService,
     INotificationSender notificationSender,
@@ -121,7 +121,7 @@ public class OtpService(
             return OtpResult.Fail(OtpOutcome.StoreNotFound);
         }
 
-        if (!IsOtpSignInEnabled(store))
+        if (!await IsOtpSignInEnabledAsync(store))
         {
             return OtpResult.Fail(OtpOutcome.OtpDisabled, store);
         }
@@ -207,8 +207,10 @@ public class OtpService(
         await notificationSender.ScheduleSendNotificationAsync(notification);
     }
 
-    protected virtual bool IsOtpSignInEnabled(Store store)
+    protected virtual async Task<bool> IsOtpSignInEnabledAsync(Store store)
     {
-        return store.Settings.GetValue<bool>(OtpModuleSettings.OtpSignInEnabled);
+        var schemes = await storeAuthenticationService.GetStoreSchemesAsync(store.Id, clone: false);
+
+        return schemes.Any(x => x.Name.EqualsIgnoreCase(ModuleConstants.Security.SignInType) && x.IsActive);
     }
 }
