@@ -24,7 +24,6 @@ public static class ModuleConstants
 
         public static class FailureReason
         {
-            public const string MissingParameter = "MissingParameter";
             public const string StoreNotFound = "StoreNotFound";
             public const string OtpDisabled = "OtpDisabled";
             public const string LockoutDisabled = "LockoutDisabled";
@@ -42,17 +41,9 @@ public static class ModuleConstants
                 Name = "OtpSignIn.Enabled",
                 GroupName = "OTP Sign-In|General",
                 ValueType = SettingValueType.Boolean,
-                DefaultValue = false,
+                DefaultValue = true,
                 IsPublic = true,
             };
-        }
-
-        public static IEnumerable<SettingDescriptor> StoreSettings
-        {
-            get
-            {
-                yield return General.OtpSignInEnabled;
-            }
         }
 
         public static IEnumerable<SettingDescriptor> AllSettings
