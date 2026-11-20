@@ -33,6 +33,7 @@ public abstract class OtpTestsBase
 {
     public const string StoreId = "test-store";
     public const string OtpDisabledStoreId = "otp-disabled-store";
+    public const string NoOtpSchemeStoreId = "no-otp-scheme-store";
     public const string UnknownStoreId = "unknown-store";
     public const string TrustedStoreId = "trusted-store";
     public const string UntrustedStoreId = "untrusted-store";
@@ -129,7 +130,8 @@ public abstract class OtpTestsBase
         };
 
         var disabledStore = new Store { Id = OtpDisabledStoreId };
-        var stores = new[] { store, disabledStore };
+        var noOtpSchemeStore = new Store { Id = NoOtpSchemeStoreId, TrustedGroups = [StoreId] };
+        var stores = new[] { store, disabledStore, noOtpSchemeStore };
         StoreService = new Mock<IStoreService>();
 
         StoreService
