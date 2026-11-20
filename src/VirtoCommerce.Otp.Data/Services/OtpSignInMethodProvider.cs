@@ -15,7 +15,9 @@ public class OtpSignInMethodProvider(ISettingsManager settingsManager) : ISignIn
 {
     public virtual async Task<IList<SignInMethod>> GetSignInMethodsAsync(ApplicationUser user = null)
     {
-        if (!await settingsManager.GetValueAsync<bool>(OtpModuleSettings.OtpSignInEnabled))
+        // OTP has no per-user keys, so it is not listed among a user's own sign-in methods.
+        if (user != null ||
+            !await settingsManager.GetValueAsync<bool>(OtpModuleSettings.OtpSignInEnabled))
         {
             return [];
         }

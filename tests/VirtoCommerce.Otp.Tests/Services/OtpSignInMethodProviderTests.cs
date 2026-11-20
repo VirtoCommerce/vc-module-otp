@@ -2,6 +2,7 @@ using System.Threading.Tasks;
 using Moq;
 using VirtoCommerce.Otp.Core;
 using VirtoCommerce.Otp.Data.Services;
+using VirtoCommerce.Platform.Core.Security;
 using VirtoCommerce.Platform.Core.Settings;
 using Xunit;
 using OtpModuleSettings = VirtoCommerce.Otp.Core.ModuleConstants.Settings.General;
@@ -34,6 +35,20 @@ public class OtpSignInMethodProviderTests
 
         // Act
         var signInMethods = await provider.GetSignInMethodsAsync();
+
+        // Assert
+        Assert.Empty(signInMethods);
+    }
+
+    [Fact]
+    public async Task GetSignInMethodsAsync_UserGiven_ReturnsNothing()
+    {
+        // Arrange
+        var user = new ApplicationUser { Id = "user-1" };
+        var provider = CreateProvider(isOtpSignInEnabled: true);
+
+        // Act
+        var signInMethods = await provider.GetSignInMethodsAsync(user);
 
         // Assert
         Assert.Empty(signInMethods);
