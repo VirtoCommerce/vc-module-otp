@@ -11,9 +11,9 @@ using VirtoCommerce.Otp.Core.Services;
 using VirtoCommerce.Otp.Data.Providers;
 using VirtoCommerce.Otp.Data.Services;
 using VirtoCommerce.Platform.Core.Modularity;
+using VirtoCommerce.Platform.Core.Security.SignInMethods;
 using VirtoCommerce.Platform.Core.Settings;
 using VirtoCommerce.Platform.Security.OpenIddict;
-using VirtoCommerce.StoreModule.Core.Model;
 
 namespace VirtoCommerce.Otp.Web;
 
@@ -29,6 +29,7 @@ public class Module : IModule, IHasConfiguration
             options.Tokens.ProviderMap[ModuleConstants.Security.TokenProvider] = new TokenProviderDescriptor(typeof(OtpEmailTokenProvider)));
 
         serviceCollection.AddTransient<IOtpService, OtpService>();
+        serviceCollection.AddScoped<ISignInMethodProvider, OtpSignInMethodProvider>();
         serviceCollection.AddGrantTypeHandler<OtpGrantTypeHandler>(ModuleConstants.Security.GrantType);
     }
 
@@ -38,7 +39,6 @@ public class Module : IModule, IHasConfiguration
 
         var settingsRegistrar = serviceProvider.GetRequiredService<ISettingsRegistrar>();
         settingsRegistrar.RegisterSettings(ModuleConstants.Settings.AllSettings, ModuleInfo.Id);
-        settingsRegistrar.RegisterSettingsForType(ModuleConstants.Settings.StoreSettings, nameof(Store));
 
         var notificationRegistrar = serviceProvider.GetRequiredService<INotificationRegistrar>();
         notificationRegistrar.RegisterNotification<OtpSignInEmailNotification>()

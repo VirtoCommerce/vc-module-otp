@@ -24,9 +24,11 @@ Codes are generated and verified by the module's `OtpEmail` token provider, buil
 
 ## Configuration
 
-| Store setting | Description | Default |
+| Global setting | Description | Default |
 | --- | --- | --- |
-| `OtpSignIn.Enabled` | Enables OTP sign-in for the store. | `false` |
+| `OtpSignIn.Enabled` | Turns OTP sign-in on for the whole platform. While it is off, OTP isn't listed in any store's authentication types, and code requests and codes are refused in every store. | `true` |
+
+Each store switches OTP sign-in on or off in its **Store authentication types** blade. A store whose authentication types were never saved has OTP active as soon as the global setting is on. Storefronts show OTP sign-in when the store's `authenticationTypes` contains `OTP`.
 
 ## References
 

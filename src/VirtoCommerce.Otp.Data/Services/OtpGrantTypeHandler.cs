@@ -2,7 +2,6 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
-using OpenIddict.Abstractions;
 using VirtoCommerce.Otp.Core;
 using VirtoCommerce.Otp.Core.Models;
 using VirtoCommerce.Otp.Core.Services;
@@ -67,17 +66,6 @@ public class OtpGrantTypeHandler(
         return result;
     }
 
-    protected virtual string GetRequiredParameter(OpenIddictRequest request, string name, List<string> missingParameters)
-    {
-        var value = (string)request.GetParameter(name);
-        if (string.IsNullOrEmpty(value))
-        {
-            missingParameters.Add(name);
-        }
-
-        return value;
-    }
-
     protected virtual SignInResult GetSignInResult(OtpOutcome outcome)
     {
         return outcome switch
@@ -86,13 +74,6 @@ public class OtpGrantTypeHandler(
             OtpOutcome.AccountLocked => SignInResult.LockedOut,
             _ => SignInResult.Failed,
         };
-    }
-
-    protected virtual TokenResponse BuildErrorResponse(TokenRequestContext context, List<string> missingParameters)
-    {
-        context.FailureReason = ModuleConstants.Security.FailureReason.MissingParameter;
-
-        return CreateTokenResponse(Errors.InvalidRequest, OtpErrorDescriber.MissingParameters(missingParameters));
     }
 
     protected virtual TokenResponse BuildErrorResponse(TokenRequestContext context, OtpResult verifyResult)
